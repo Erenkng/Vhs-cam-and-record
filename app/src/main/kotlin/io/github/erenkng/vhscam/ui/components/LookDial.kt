@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -285,8 +286,9 @@ fun <T> ThumbnailDial(
 }
 
 /**
- * A ruler for a manual setting, like a pro camera's: ticks under the values, the one in the
- * middle is chosen, and it follows the finger.
+ * A ruler for a manual setting, the way the iPhone's camera dials look: fine ticks that follow
+ * the finger past a fixed pointer, numbers only at the [major] stops, and the chosen value
+ * large above the middle.
  */
 @Composable
 fun <T> RulerDial(
@@ -296,30 +298,69 @@ fun <T> RulerDial(
     label: (T) -> String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    major: (index: Int, option: T) -> Boolean = { _, _ -> true },
 ) {
     val accent = MaterialTheme.colorScheme.primary
-    Box(modifier, contentAlignment = Alignment.Center) {
-        SnapDial(options, selected, onSelect, itemWidth = 58.dp, height = 56.dp, enabled = enabled, live = true) { option, chosen, onClick ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
-            ) {
-                Text(
-                    text = label(option),
-                    style = if (chosen) MaterialTheme.typography.labelLargeEmphasized else MaterialTheme.typography.labelMedium,
-                    color = if (chosen) accent else Color.White.copy(alpha = 0.7f),
-                    maxLines = 1,
-                )
-                Box(Modifier.width(2.dp).height(if (chosen) 16.dp else 10.dp).background(if (chosen) accent else Color.White.copy(alpha = 0.5f)))
-            }
-        }
-        // The fixed pointer in the middle.
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .size(6.dp)
-                .background(accent, CircleShape),
+    // Long scales get fine ticks; a handful of presets get room for every name.
+    val dense = options.size > DENSE_OPTIONS
+    Column(
+        modifier = modifier.graphicsLayer { alpha = if (enabled) 1f else 0.4f },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label(selected),
+            style = MaterialTheme.typography.titleMediumEmphasized.copy(fontFeatureSettings = "tnum"),
+            color = accent,
+            maxLines = 1,
         )
+        Box(contentAlignment = Alignment.TopCenter) {
+            SnapDial(
+                options = options,
+                selected = selected,
+                onSelect = onSelect,
+                itemWidth = if (dense) 20.dp else 64.dp,
+                height = 40.dp,
+                enabled = enabled,
+                live = true,
+            ) { option, chosen, onClick ->
+                val index = options.indexOf(option)
+                val isMajor = major(index, option)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .clickable(enabled = enabled, onClick = onClick)
+                        .padding(top = 6.dp),
+                ) {
+                    Box(
+                        Modifier
+                            .width(if (isMajor) 2.dp else 1.dp)
+                            .height(if (isMajor) 14.dp else 8.dp)
+                            .background(Color.White.copy(alpha = if (isMajor) 0.85f else 0.45f)),
+                    )
+                    if (isMajor) {
+                        Text(
+                            text = label(option),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (chosen) accent else Color.White.copy(alpha = 0.6f),
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.wrapContentWidth(unbounded = true),
+                        )
+                    }
+                }
+            }
+            // The fixed pointer in the middle.
+            Box(
+                Modifier
+                    .width(2.dp)
+                    .height(20.dp)
+                    .background(accent, CircleShape),
+            )
+        }
     }
 }
+
+private const val DENSE_OPTIONS = 8

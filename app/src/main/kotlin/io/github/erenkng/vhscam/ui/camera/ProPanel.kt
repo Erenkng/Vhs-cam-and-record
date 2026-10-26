@@ -89,12 +89,16 @@ fun ProPanel(state: CameraUiState, actions: CameraActions, open: ProSetting?, on
                     selected = state.iso,
                     onSelect = actions.onIso,
                     label = { it?.toString() ?: auto },
+                    // Numbers at whole stops: 50, 100, 200, 400...
+                    major = { _, iso -> iso == null || iso in WholeIsoStops },
                 )
                 ProSetting.SPEED -> RulerDial(
                     options = listOf<Long?>(null) + (timeRange?.let { ManualExposure.shutterStops(it) } ?: emptyList()),
                     selected = state.shutterNanos,
                     onSelect = actions.onShutterSpeed,
                     label = { it?.let(ManualExposure::formatShutter) ?: auto },
+                    // Numbers at every other half stop, i.e. whole stops.
+                    major = { _, time -> time == null || ManualExposure.SHUTTER_STOPS.indexOf(time) % 2 == 0 },
                 )
                 ProSetting.EV -> RulerDial(
                     options = (exposure.min..exposure.max).toList(),
@@ -102,6 +106,8 @@ fun ProPanel(state: CameraUiState, actions: CameraActions, open: ProSetting?, on
                     onSelect = actions.onExposure,
                     label = { formatEv(it * exposure.step) },
                     enabled = !state.manualExposure,
+                    // Numbers at whole EV.
+                    major = { _, index -> abs(index * exposure.step - (index * exposure.step).roundToInt()) < 0.01f },
                 )
                 ProSetting.FOCUS -> RulerDial(
                     options = listOf<Float?>(null) + FocusStops.filter { it <= caps.minFocusDiopters },
@@ -226,6 +232,9 @@ private fun ProCell(
         )
     }
 }
+
+/** ISO at whole stops, labelled on the ruler. */
+private val WholeIsoStops = setOf(25, 50, 100, 200, 400, 800, 1600, 3200, 6400, 12800)
 
 /** Focus distances on the ruler, in diopters: infinity, 5 m, 2 m, 1 m, 50, 30, 20 and 10 cm. */
 private val FocusStops = listOf(0f, 0.2f, 0.5f, 1f, 2f, 10f / 3f, 5f, 10f)
