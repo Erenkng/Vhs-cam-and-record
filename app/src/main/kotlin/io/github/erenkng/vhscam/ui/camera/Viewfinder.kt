@@ -80,11 +80,13 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private val ViewfinderCorner = 28.dp
-
 /**
- * The viewfinder card: camera picture clipped to the current look's frame, plus tap/long-press
- * focus, pinch zoom, grid, focus ring, exposure slider, zoom presets and the REC badge.
+ * The viewfinder, edge to edge at the top of the available space: camera picture cropped to
+ * the current look's frame, plus tap/long-press focus, pinch zoom, grid, focus ring, exposure
+ * slider, zoom presets and the REC badge.
+ *
+ * @param coveredBottom height of the controls drawn over the bottom of this space; the zoom
+ *   buttons stay above them.
  */
 @Composable
 fun ViewfinderPanel(
@@ -92,6 +94,7 @@ fun ViewfinderPanel(
     actions: CameraActions,
     viewfinder: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    coveredBottom: Dp = 0.dp,
 ) {
     val settings = state.settings
     val motion = MaterialTheme.motionScheme
@@ -119,12 +122,15 @@ fun ViewfinderPanel(
         }
     }
 
-    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+    BoxWithConstraints(modifier, contentAlignment = Alignment.TopCenter) {
         val widthLimited = maxWidth / maxHeight < animatedBox
+        val previewHeight = if (widthLimited) maxWidth / animatedBox else maxHeight
+        // How much of the picture's bottom the controls cover.
+        val covered = (previewHeight - (maxHeight - coveredBottom)).coerceAtLeast(0.dp)
         Box(
             Modifier
                 .aspectRatio(animatedBox, matchHeightConstraintsFirst = !widthLimited)
-                .clip(CenteredCropShape(animatedCrop, ViewfinderCorner))
+                .clip(CenteredCropShape(animatedCrop, 0.dp))
                 .background(Color.Black)
                 .pointerInput(Unit) {
                     detectTapGestures(
@@ -189,7 +195,7 @@ fun ViewfinderPanel(
             }
 
             // The controls sit inside the look's crop, so a square or 8-bit frame doesn't cut them off.
-            CropBox(animatedCrop) {
+            CropBox(animatedCrop, covered) { cropCovered ->
                 AnimatedVisibility(
                     visible = state.focus != null && state.exposure.supported,
                     enter = fadeIn(),
@@ -252,20 +258,24 @@ fun ViewfinderPanel(
                     ratio = state.effectiveZoom,
                     rotation = iconRotation,
                     onZoom = actions.onZoom,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp + cropCovered),
                 )
             }
         }
     }
 }
 
-/** A box the size of a centred crop with [aspect] (width / height) of the available space. */
+/**
+ * A box the size of a centred crop with [aspect] (width / height) of the available space.
+ * [content] gets how much of the crop's bottom is covered, given [covered] for the whole space.
+ */
 @Composable
-private fun CropBox(aspect: Float, content: @Composable BoxScope.() -> Unit) {
+private fun CropBox(aspect: Float, covered: Dp, content: @Composable BoxScope.(covered: Dp) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val boxAspect = maxWidth / maxHeight
         val (width, height) = if (aspect < boxAspect) maxHeight * aspect to maxHeight else maxWidth to maxWidth / aspect
-        Box(Modifier.size(width, height), content = content)
+        val cropCovered = (covered - (maxHeight - height) / 2).coerceAtLeast(0.dp)
+        Box(Modifier.size(width, height)) { content(cropCovered) }
     }
 }
 

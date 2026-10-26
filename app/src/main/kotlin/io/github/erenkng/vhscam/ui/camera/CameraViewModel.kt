@@ -29,6 +29,7 @@ import io.github.erenkng.vhscam.camera.ExposureInfo
 import io.github.erenkng.vhscam.camera.LookFactory
 import io.github.erenkng.vhscam.camera.RecordTarget
 import io.github.erenkng.vhscam.camera.ZoomInfo
+import io.github.erenkng.vhscam.core.exposure.Exposure
 import io.github.erenkng.vhscam.core.look.AspectSetting
 import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
@@ -102,6 +103,12 @@ data class CameraUiState(
     /** Manual focus distance in diopters, or null for autofocus. */
     val manualFocus: Float? = null,
     val whiteBalance: WhiteBalance = WhiteBalance.AUTO,
+    /** Pro mode: manual ISO, or null for auto. */
+    val iso: Int? = null,
+    /** Pro mode: manual shutter time in nanoseconds, or null for auto. */
+    val shutterNanos: Long? = null,
+    /** What auto exposure is doing, shown in Pro mode next to AUTO. */
+    val meter: Exposure? = null,
     val latest: CapturedMedia? = null,
     /** Incremented for every photo, drives the shutter blink. */
     val shutterCount: Int = 0,
@@ -112,8 +119,12 @@ data class CameraUiState(
     val interval: IntervalUi? = null,
 ) {
     val isRecording: Boolean get() = recording is RecordingUi.Active
-    val isFilming: Boolean get() = settings.mode != CaptureMode.PHOTO
+    val isFilming: Boolean get() = settings.mode.films
+    val isPro: Boolean get() = settings.mode == CaptureMode.PRO
     val activeLook: Look get() = LookFactory.activeLook(settings)
+
+    /** Pro mode with ISO or shutter set by hand: auto exposure, its compensation and the flash are off. */
+    val manualExposure: Boolean get() = isPro && (iso != null || shutterNanos != null) && capabilities.manualExposure
 
     /** Zoom as the user sees it: the camera's zoom times the digital zoom. */
     val effectiveZoom: Float get() = zoom.ratio * digitalZoom
@@ -123,7 +134,8 @@ data class CameraUiState(
 
     val bindKey: BindKey
         get() = BindKey(
-            mode = settings.mode,
+            // Pro is photo mode with manual controls on top: no new session needed.
+            mode = if (settings.mode == CaptureMode.PRO) CaptureMode.PHOTO else settings.mode,
             front = settings.frontCamera,
             aspect = settings.aspect.takeIf { isFilming },
             quality = settings.videoQuality.takeIf { isFilming },
@@ -164,11 +176,17 @@ class CameraViewModel(
 
         viewModelScope.launch {
             container.settings.settings.collect { s ->
+                val before = _state.value.settings.mode
                 _state.update {
                     val next = it.copy(settings = s, settingsLoaded = true)
                     if (next.digitalZoomAvailable) next else next.copy(digitalZoom = 1f)
                 }
+                // Switching between photo and Pro keeps the session; only the manual controls change.
+                if ((before == CaptureMode.PRO) != (s.mode == CaptureMode.PRO)) applyManualControls()
             }
+        }
+        viewModelScope.launch {
+            engine.meter.collect { m -> if (_state.value.isPro) _state.update { it.copy(meter = m) } }
         }
         viewModelScope.launch { engine.zoom.collect { z -> _state.update { it.copy(zoom = z) } } }
         viewModelScope.launch { engine.exposure.collect { e -> _state.update { it.copy(exposure = e) } } }
@@ -231,7 +249,7 @@ class CameraViewModel(
                 viewModelScope.launch { message(CameraMessage.CAMERA_ERROR) }
             }
             _state.update { it.copy(capabilities = capabilities, manualFocus = null, focus = null, digitalZoom = 1f) }
-            engine.setManualControls(null, _state.value.whiteBalance)
+            applyManualControls()
             if (settings.mode == CaptureMode.DUAL && !capabilities.dualCamera) {
                 // Not supported after all: CameraX bound a single camera, so say so and switch.
                 updateSettings { it.copy(mode = CaptureMode.VIDEO) }
@@ -264,6 +282,7 @@ class CameraViewModel(
         }
         when (s.settings.mode) {
             CaptureMode.PHOTO -> if (s.settings.booth) captureBooth() else withTimer(s.settings.timer) { capturePhoto() }
+            CaptureMode.PRO -> withTimer(s.settings.timer) { capturePhoto() }
             CaptureMode.VIDEO, CaptureMode.DUAL -> if (s.isRecording) {
                 stopRecording()
             } else {
@@ -616,12 +635,37 @@ class CameraViewModel(
 
     fun setManualFocus(diopters: Float?) {
         _state.update { it.copy(manualFocus = diopters) }
-        engine.setManualControls(diopters, _state.value.whiteBalance)
+        applyManualControls()
     }
 
     fun setWhiteBalance(whiteBalance: WhiteBalance) {
         _state.update { it.copy(whiteBalance = whiteBalance) }
-        engine.setManualControls(_state.value.manualFocus, whiteBalance)
+        applyManualControls()
+    }
+
+    /** Pro mode ISO; null is auto. */
+    fun setIso(iso: Int?) {
+        _state.update { it.copy(iso = iso) }
+        applyManualControls()
+    }
+
+    /** Pro mode shutter time; null is auto. */
+    fun setShutter(nanos: Long?) {
+        _state.update { it.copy(shutterNanos = nanos) }
+        applyManualControls()
+    }
+
+    /** Sends focus, white balance and (in Pro mode) exposure to the camera. */
+    private fun applyManualControls() {
+        val s = _state.value
+        engine.setManualControls(
+            focusDiopters = s.manualFocus,
+            whiteBalance = s.whiteBalance,
+            iso = s.iso.takeIf { s.isPro },
+            exposureNanos = s.shutterNanos.takeIf { s.isPro },
+        )
+        // The flash only fires under auto exposure.
+        engine.setFlash(if (s.manualExposure) FlashSetting.OFF else s.settings.flash)
     }
 
     fun toggleTorch() = engine.setTorch(!_state.value.torchOn)

@@ -20,6 +20,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.erenkng.vhscam.camera.CameraCapabilities
 import io.github.erenkng.vhscam.camera.ExposureInfo
 import io.github.erenkng.vhscam.camera.ZoomInfo
+import io.github.erenkng.vhscam.core.exposure.Exposure
 import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.IntervalSetting
@@ -34,6 +35,7 @@ import io.github.erenkng.vhscam.ui.camera.EffectsSheetContent
 import io.github.erenkng.vhscam.ui.camera.FocusStatus
 import io.github.erenkng.vhscam.ui.camera.FocusUi
 import io.github.erenkng.vhscam.ui.camera.IntervalUi
+import io.github.erenkng.vhscam.ui.camera.ProSetting
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
 import io.github.erenkng.vhscam.ui.gallery.GalleryContent
 import io.github.erenkng.vhscam.ui.permission.PermissionContent
@@ -128,6 +130,31 @@ class ScreenshotTest {
             ),
             actions = CameraActions(),
             effectRowOpen = true,
+            viewfinder = { FakeScene(it) },
+        )
+    }
+
+    @Test
+    fun cameraPro() = capture("11_camera_pro") {
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(mode = CaptureMode.PRO, photoLook = Look.FILM),
+                settingsLoaded = true,
+                signal = true,
+                zoom = ZoomInfo(ratio = 1f, min = 0.6f, max = 10f),
+                exposure = ExposureInfo(index = 0, min = -12, max = 12, step = 1f / 6f),
+                capabilities = CameraCapabilities(
+                    hasFlash = true,
+                    minFocusDiopters = 10f,
+                    isoRange = 50..3200,
+                    exposureTimeRange = 100_000L..1_000_000_000L,
+                ),
+                iso = 400,
+                meter = Exposure(iso = 320, timeNanos = 16_666_666L),
+                manualFocus = 1f,
+            ),
+            actions = CameraActions(),
+            proSetting = ProSetting.ISO,
             viewfinder = { FakeScene(it) },
         )
     }

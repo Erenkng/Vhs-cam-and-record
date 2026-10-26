@@ -52,8 +52,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.ui.camera.label
+import io.github.erenkng.vhscam.ui.camera.sample
 import io.github.erenkng.vhscam.ui.components.AppSlider
-import io.github.erenkng.vhscam.ui.components.LookDial
+import io.github.erenkng.vhscam.ui.components.ThumbnailDial
 import io.github.erenkng.vhscam.ui.theme.VhsCamTheme
 
 @Composable
@@ -159,10 +160,11 @@ private fun Controls(state: RestyleUiState, onLook: (Look) -> Unit, onIntensity:
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        LookDial(
+        ThumbnailDial(
             options = Look.entries,
             selected = state.look,
             onSelect = onLook,
+            image = { it.sample() },
             label = { stringResource(it.label()) },
             enabled = !state.saving,
         )

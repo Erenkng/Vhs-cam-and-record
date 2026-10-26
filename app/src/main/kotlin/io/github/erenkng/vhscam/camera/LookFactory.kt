@@ -1,6 +1,5 @@
 package io.github.erenkng.vhscam.camera
 
-import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.PhotoLookPresets
 import io.github.erenkng.vhscam.core.look.VhsPresets
@@ -15,9 +14,9 @@ import java.time.ZoneId
 /** Builds what the renderer needs from the user's settings. */
 object LookFactory {
 
-    /** The look in use: the video look when filming, the photo look otherwise. */
+    /** The look in use: the photo look for photos (Pro too), the video look when filming. */
     fun activeLook(settings: AppSettings): Look =
-        if (settings.mode == CaptureMode.PHOTO) settings.photoLook else settings.videoLook.takeIf { it.video } ?: Look.VHS
+        if (settings.mode.takesPhotos) settings.photoLook else settings.videoLook.takeIf { it.video } ?: Look.VHS
 
     fun spec(settings: AppSettings, look: Look, seed: Float): LookSpec = when (look) {
         Look.VHS -> LookSpec.Vhs(
@@ -56,7 +55,7 @@ object LookFactory {
 
     /** Landscape aspect of the photo look's crop. Video crops through the camera view port. */
     fun lookAspect(settings: AppSettings): Float? =
-        if (settings.mode == CaptureMode.PHOTO) photoAspect(settings, settings.photoLook) else null
+        if (settings.mode.takesPhotos) photoAspect(settings, settings.photoLook) else null
 
     fun photoAspect(settings: AppSettings, look: Look): Float = look.cropAspect ?: settings.aspect.ratio
 

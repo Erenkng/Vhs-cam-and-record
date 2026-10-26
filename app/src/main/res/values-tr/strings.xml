@@ -129,6 +129,16 @@
 
     <!-- v1 -->
     <string name="mode_dual">Çift</string>
+    <string name="mode_pro">Pro</string>
+    <string name="pro_look">STİL</string>
+    <string name="pro_iso">ISO</string>
+    <string name="pro_speed">HIZ</string>
+    <string name="pro_ev">EV</string>
+    <string name="pro_focus">ODAK</string>
+    <string name="pro_wb">BD</string>
+    <string name="pro_auto">OTO</string>
+    <string name="pro_af">AF</string>
+    <string name="pro_awb">OTO</string>
     <string name="look_gameboy">8-bit</string>
     <string name="look_webcam">Webcam</string>
     <string name="look_cctv">CCTV</string>

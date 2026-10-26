@@ -1,7 +1,22 @@
 package io.github.erenkng.vhscam.core.look
 
-/** Capture modes offered by the camera screen. [DUAL] films with two cameras at once. */
-enum class CaptureMode { PHOTO, VIDEO, DUAL }
+/**
+ * Capture modes offered by the camera screen. [DUAL] films with two cameras at once; [PRO]
+ * takes photos with manual ISO, shutter speed, focus and white balance.
+ */
+enum class CaptureMode {
+    PHOTO,
+    VIDEO,
+    DUAL,
+    PRO,
+    ;
+
+    /** Takes photos, with the photo look. */
+    val takesPhotos: Boolean get() = this == PHOTO || this == PRO
+
+    /** Records video, with the video look. */
+    val films: Boolean get() = this == VIDEO || this == DUAL
+}
 
 /**
  * Retro looks. Every look takes photos; the ones with [video] can also record.
