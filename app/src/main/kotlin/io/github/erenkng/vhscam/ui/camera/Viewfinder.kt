@@ -85,6 +85,8 @@ import kotlin.math.roundToInt
  * the current look's frame, plus tap/long-press focus, pinch zoom, grid, focus ring, exposure
  * slider, zoom presets and the REC badge.
  *
+ * @param coveredTop height of the controls drawn over the top of this space (the camcorder
+ *   effect buttons); the REC badge and friends stay below them.
  * @param coveredBottom height of the controls drawn over the bottom of this space; the zoom
  *   buttons stay above them.
  */
@@ -94,6 +96,7 @@ fun ViewfinderPanel(
     actions: CameraActions,
     viewfinder: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
+    coveredTop: Dp = 0.dp,
     coveredBottom: Dp = 0.dp,
 ) {
     val settings = state.settings
@@ -195,7 +198,7 @@ fun ViewfinderPanel(
             }
 
             // The controls sit inside the look's crop, so a square or 8-bit frame doesn't cut them off.
-            CropBox(animatedCrop, covered) { cropCovered ->
+            CropBox(animatedCrop, coveredTop, covered) { cropCoveredTop, cropCovered ->
                 AnimatedVisibility(
                     visible = state.focus != null && state.exposure.supported,
                     enter = fadeIn(),
@@ -206,7 +209,7 @@ fun ViewfinderPanel(
                 }
 
                 Column(
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp).rotate(iconRotation),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp + cropCoveredTop).rotate(iconRotation),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -267,15 +270,23 @@ fun ViewfinderPanel(
 
 /**
  * A box the size of a centred crop with [aspect] (width / height) of the available space.
- * [content] gets how much of the crop's bottom is covered, given [covered] for the whole space.
+ * [content] gets how much of the crop's top and bottom are covered, given [coveredTop] and
+ * [coveredBottom] for the whole space.
  */
 @Composable
-private fun CropBox(aspect: Float, covered: Dp, content: @Composable BoxScope.(covered: Dp) -> Unit) {
+private fun CropBox(
+    aspect: Float,
+    coveredTop: Dp,
+    coveredBottom: Dp,
+    content: @Composable BoxScope.(top: Dp, bottom: Dp) -> Unit,
+) {
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val boxAspect = maxWidth / maxHeight
         val (width, height) = if (aspect < boxAspect) maxHeight * aspect to maxHeight else maxWidth to maxWidth / aspect
-        val cropCovered = (covered - (maxHeight - height) / 2).coerceAtLeast(0.dp)
-        Box(Modifier.size(width, height)) { content(cropCovered) }
+        val margin = (maxHeight - height) / 2
+        Box(Modifier.size(width, height)) {
+            content((coveredTop - margin).coerceAtLeast(0.dp), (coveredBottom - margin).coerceAtLeast(0.dp))
+        }
     }
 }
 

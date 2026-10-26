@@ -211,6 +211,9 @@ fun CameraContent(
 /** Height of the row of icons above the viewfinder. */
 private val TopBarHeight = 56.dp
 
+/** Space between the top of the viewfinder and the camcorder effect buttons over it. */
+private val EffectRowGap = 10.dp
+
 /**
  * Laid out like a phone's own camera: icons along the top, the picture edge to edge under
  * them, and the looks, modes and shutter at the bottom (over the picture when it is tall).
@@ -249,6 +252,7 @@ private fun CameraLayout(
     SideEffect { if (state.busy != null) lastBusy = state.busy }
     val density = LocalDensity.current
     var controlsHeight by remember { mutableStateOf(0.dp) }
+    var effectRowHeight by remember { mutableStateOf(0.dp) }
 
     Box(modifier.fillMaxSize().background(Color.Black)) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -265,6 +269,7 @@ private fun CameraLayout(
                 state = state,
                 actions = actions,
                 viewfinder = viewfinder,
+                coveredTop = if (effectRowHeight > 0.dp) EffectRowGap + effectRowHeight else 0.dp,
                 coveredBottom = controlsHeight,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             )
@@ -275,7 +280,11 @@ private fun CameraLayout(
             visible = effectRowVisible,
             enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
             exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut(),
-            modifier = Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = TopBarHeight + 10.dp),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .safeDrawingPadding()
+                .padding(top = TopBarHeight + EffectRowGap)
+                .onSizeChanged { effectRowHeight = with(density) { it.height.toDp() } },
         ) {
             EffectChips(selected = state.settings.effect, onSelect = actions.onEffect)
         }
