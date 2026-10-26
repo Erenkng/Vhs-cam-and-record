@@ -63,6 +63,14 @@ import java.time.ZoneOffset
 @Composable
 fun EffectsSheet(state: CameraUiState, actions: CameraActions, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        EffectsSheetContent(state, actions)
+    }
+}
+
+/** The sheet's content, separate from the sheet so it can be screenshot-tested. */
+@Composable
+fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: Modifier = Modifier) {
     val settings = state.settings
     val look = state.activeLook
     val change = actions.onSettingsChange
@@ -70,134 +78,133 @@ fun EffectsSheet(state: CameraUiState, actions: CameraActions, onDismiss: () -> 
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf<LocalDate?>(null) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        LazyColumn(
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (look == PhotoLook.VHS) {
-                section(R.string.sheet_tape)
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(stringResource(R.string.tape_speed), style = MaterialTheme.typography.titleSmallEmphasized)
-                        ConnectedToggleGroup(
-                            options = TapeSpeed.entries,
-                            selected = settings.tapeSpeed,
-                            onSelect = { speed -> change { it.copy(tapeSpeed = speed) } },
-                            fill = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { speed -> Text(stringResource(speed.label())) }
-                        Text(
-                            stringResource(R.string.tape_speed_help),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (look == PhotoLook.VHS) {
+            section(R.string.sheet_tape)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.tape_speed), style = MaterialTheme.typography.titleSmallEmphasized)
+                    ConnectedToggleGroup(
+                        options = TapeSpeed.entries,
+                        selected = settings.tapeSpeed,
+                        onSelect = { speed -> change { it.copy(tapeSpeed = speed) } },
+                        fill = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { speed -> Text(stringResource(speed.label())) }
+                    Text(
+                        stringResource(R.string.tape_speed_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                item {
-                    LabeledSlider(R.string.wear, settings.vhs.wear, 0f..1f) { v ->
-                        change { it.copy(vhs = it.vhs.copy(wear = v)) }
-                    }
+            }
+            item {
+                LabeledSlider(R.string.wear, settings.vhs.wear, 0f..1f) { v ->
+                    change { it.copy(vhs = it.vhs.copy(wear = v)) }
                 }
-                item {
-                    val arrow by animateFloatAsState(if (showAdvanced) 90f else 0f, label = "arrow")
-                    ListItem(onClick = { showAdvanced = !showAdvanced }, trailingContent = {
-                        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, modifier = Modifier.rotate(arrow))
-                    }) {
-                        Text(stringResource(R.string.advanced))
-                    }
+            }
+            item {
+                val arrow by animateFloatAsState(if (showAdvanced) 90f else 0f, label = "arrow")
+                ListItem(onClick = { showAdvanced = !showAdvanced }, trailingContent = {
+                    Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, modifier = Modifier.rotate(arrow))
+                }) {
+                    Text(stringResource(R.string.advanced))
                 }
-                item {
-                    AnimatedVisibility(visible = showAdvanced) {
-                        AdvancedVhs(settings.vhs) { transform -> change { it.copy(vhs = transform(it.vhs)) } }
-                    }
+            }
+            item {
+                AnimatedVisibility(visible = showAdvanced) {
+                    AdvancedVhs(settings.vhs) { transform -> change { it.copy(vhs = transform(it.vhs)) } }
                 }
-            } else {
-                section(R.string.sheet_look)
-                item {
-                    val value = when (look) {
-                        PhotoLook.CCD -> settings.ccdIntensity
-                        PhotoLook.FILM -> settings.filmIntensity
-                        else -> settings.polaroidIntensity
-                    }
-                    LabeledSlider(R.string.intensity, value, 0f..1f) { v ->
-                        change {
-                            when (look) {
-                                PhotoLook.CCD -> it.copy(ccdIntensity = v)
-                                PhotoLook.FILM -> it.copy(filmIntensity = v)
-                                else -> it.copy(polaroidIntensity = v)
-                            }
+            }
+        } else {
+            section(R.string.sheet_look)
+            item {
+                val value = when (look) {
+                    PhotoLook.CCD -> settings.ccdIntensity
+                    PhotoLook.FILM -> settings.filmIntensity
+                    else -> settings.polaroidIntensity
+                }
+                LabeledSlider(R.string.intensity, value, 0f..1f) { v ->
+                    change {
+                        when (look) {
+                            PhotoLook.CCD -> it.copy(ccdIntensity = v)
+                            PhotoLook.FILM -> it.copy(filmIntensity = v)
+                            else -> it.copy(polaroidIntensity = v)
                         }
                     }
                 }
             }
+        }
 
-            if (look != PhotoLook.POLAROID) {
-                section(R.string.sheet_osd)
-                switchItem(R.string.date_stamp, settings.dateStamp) { v -> change { it.copy(dateStamp = v) } }
-                if (look == PhotoLook.VHS) {
-                    switchItem(R.string.time_stamp, settings.timeStamp, enabled = settings.dateStamp) { v ->
-                        change { it.copy(timeStamp = v) }
-                    }
-                    switchItem(R.string.play_osd, settings.playOsd) { v -> change { it.copy(playOsd = v) } }
-                    switchItem(R.string.counter_osd, settings.counterOsd) { v -> change { it.copy(counterOsd = v) } }
+        if (look != PhotoLook.POLAROID) {
+            section(R.string.sheet_osd)
+            switchItem(R.string.date_stamp, settings.dateStamp) { v -> change { it.copy(dateStamp = v) } }
+            if (look == PhotoLook.VHS) {
+                switchItem(R.string.time_stamp, settings.timeStamp, enabled = settings.dateStamp) { v ->
+                    change { it.copy(timeStamp = v) }
                 }
-                switchItem(R.string.clock_24h, settings.clockStyle == ClockStyle.H24) { v ->
-                    change { it.copy(clockStyle = if (v) ClockStyle.H24 else ClockStyle.H12) }
-                }
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(stringResource(R.string.date_format), style = MaterialTheme.typography.titleSmallEmphasized)
-                        val sample = LookFactory.clockTime(settings)
-                        ConnectedToggleGroup(
-                            options = DateOrder.entries,
-                            selected = settings.dateOrder,
-                            onSelect = { order -> change { it.copy(dateOrder = order) } },
-                            buttonSize = ToggleButtonSize.ExtraSmall,
-                            fill = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { order -> Text(DateStamp.vhsDate(sample, order), maxLines = 1) }
-                    }
-                }
-                item {
-                    val clockText = if (settings.clockOffsetMillis == null) {
-                        stringResource(R.string.camcorder_clock_real)
-                    } else {
-                        stringResource(R.string.camcorder_clock_custom, DateStamp.vhsDate(LookFactory.clockTime(settings), settings.dateOrder))
-                    }
-                    ListItem(
-                        onClick = { pickDate = true },
-                        leadingContent = { Icon(painterResource(R.drawable.ic_calendar_month), contentDescription = null) },
-                        supportingContent = { Text(clockText) },
-                        trailingContent = if (settings.clockOffsetMillis != null) {
-                            {
-                                TextButton(onClick = { change { it.copy(clockOffsetMillis = null) } }) {
-                                    Text(stringResource(R.string.use_real_time))
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                    ) {
-                        Text(stringResource(R.string.camcorder_clock))
-                    }
-                }
+                switchItem(R.string.play_osd, settings.playOsd) { v -> change { it.copy(playOsd = v) } }
+                switchItem(R.string.counter_osd, settings.counterOsd) { v -> change { it.copy(counterOsd = v) } }
             }
-
-            section(R.string.sheet_pro)
-            item { ManualFocusControl(state, actions) }
+            switchItem(R.string.clock_24h, settings.clockStyle == ClockStyle.H24) { v ->
+                change { it.copy(clockStyle = if (v) ClockStyle.H24 else ClockStyle.H12) }
+            }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(R.string.white_balance), style = MaterialTheme.typography.titleSmallEmphasized)
+                    Text(stringResource(R.string.date_format), style = MaterialTheme.typography.titleSmallEmphasized)
+                    val sample = LookFactory.clockTime(settings)
                     ConnectedToggleGroup(
-                        options = WhiteBalance.entries,
-                        selected = state.whiteBalance,
-                        onSelect = actions.onWhiteBalance,
+                        options = DateOrder.entries,
+                        selected = settings.dateOrder,
+                        onSelect = { order -> change { it.copy(dateOrder = order) } },
                         buttonSize = ToggleButtonSize.ExtraSmall,
                         fill = true,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { wb -> Icon(painterResource(wb.icon()), contentDescription = stringResource(wb.label())) }
+                    ) { order -> Text(DateStamp.vhsDate(sample, order), maxLines = 1) }
                 }
+            }
+            item {
+                val clockText = if (settings.clockOffsetMillis == null) {
+                    stringResource(R.string.camcorder_clock_real)
+                } else {
+                    stringResource(R.string.camcorder_clock_custom, DateStamp.vhsDate(LookFactory.clockTime(settings), settings.dateOrder))
+                }
+                ListItem(
+                    onClick = { pickDate = true },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_calendar_month), contentDescription = null) },
+                    supportingContent = { Text(clockText) },
+                    trailingContent = if (settings.clockOffsetMillis != null) {
+                        {
+                            TextButton(onClick = { change { it.copy(clockOffsetMillis = null) } }) {
+                                Text(stringResource(R.string.use_real_time))
+                            }
+                        }
+                    } else {
+                        null
+                    },
+                ) {
+                    Text(stringResource(R.string.camcorder_clock))
+                }
+            }
+        }
+
+        section(R.string.sheet_pro)
+        item { ManualFocusControl(state, actions) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.white_balance), style = MaterialTheme.typography.titleSmallEmphasized)
+                ConnectedToggleGroup(
+                    options = WhiteBalance.entries,
+                    selected = state.whiteBalance,
+                    onSelect = actions.onWhiteBalance,
+                    buttonSize = ToggleButtonSize.ExtraSmall,
+                    fill = true,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { wb -> Icon(painterResource(wb.icon()), contentDescription = stringResource(wb.label())) }
             }
         }
     }

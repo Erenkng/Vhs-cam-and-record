@@ -51,7 +51,6 @@
     <string name="busy_tape">Dubbing tape audio…</string>
 
     <!-- Messages -->
-    <string name="msg_photo_saved">Photo saved to Tapes</string>
     <string name="msg_video_saved">Tape saved</string>
     <string name="msg_capture_failed">Could not take the photo</string>
     <string name="msg_recording_failed">Recording failed</string>

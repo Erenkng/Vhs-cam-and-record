@@ -4,6 +4,7 @@ import android.view.Display
 import android.view.Surface
 import androidx.camera.compose.CameraXViewfinder
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,26 +33,36 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButtonSize
-import androidx.compose.material3.toShape
+import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.graphics.shapes.Morph
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -71,8 +82,10 @@ import io.github.erenkng.vhscam.settings.WhiteBalance
 import io.github.erenkng.vhscam.ui.components.BusyPill
 import io.github.erenkng.vhscam.ui.components.ConnectedToggleGroup
 import io.github.erenkng.vhscam.ui.components.CountdownOverlay
+import io.github.erenkng.vhscam.ui.components.ProvideHaptics
 import io.github.erenkng.vhscam.ui.components.ShutterButton
 import io.github.erenkng.vhscam.ui.theme.VhsCamTheme
+import kotlinx.coroutines.launch
 
 /** Everything the camera screen can ask for. */
 class CameraActions(
@@ -152,73 +165,91 @@ fun CameraContent(
 ) {
     // The camera UI is always dark, whatever the system theme says.
     VhsCamTheme(darkTheme = true, dynamicColor = state.settings.dynamicColor) {
-        var showEffects by rememberSaveable { mutableStateOf(false) }
-        val snackbar = remember { SnackbarHostState() }
-        val messageText = state.message?.let { stringResource(it.label()) }
-        LaunchedEffect(state.message) {
-            if (messageText != null) {
-                actions.onMessageShown()
-                snackbar.showSnackbar(messageText)
-            }
-        }
-        val iconRotation by animateFloatAsState(
-            targetValue = DeviceOrientation.iconRotationDegrees(state.rotation),
-            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-            label = "iconRotation",
-        )
-
-        Box(modifier.fillMaxSize().background(Color.Black)) {
-            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                CameraTopBar(
-                    state = state,
-                    actions = actions,
-                    iconRotation = iconRotation,
-                    onOpenEffects = { showEffects = true },
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
-                )
-                ViewfinderPanel(
-                    state = state,
-                    actions = actions,
-                    viewfinder = viewfinder,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                )
-                BottomControls(state = state, actions = actions, iconRotation = iconRotation)
-            }
-
-            CountdownOverlay(seconds = state.countdown, modifier = Modifier.align(Alignment.Center))
-
-            val busy = state.busy
-            AnimatedVisibility(
-                visible = busy != null,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut(),
-                modifier = Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 76.dp),
-            ) {
-                if (busy != null) {
-                    BusyPill(
-                        label = stringResource(if (busy.kind == BusyKind.DEVELOPING) R.string.busy_developing else R.string.busy_tape),
-                        progress = busy.progress,
-                    )
-                }
-            }
-
-            SnackbarHost(
-                hostState = snackbar,
-                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = 220.dp),
-            )
-        }
-
-        if (showEffects) {
-            EffectsSheet(state = state, actions = actions, onDismiss = { showEffects = false })
+        ProvideHaptics(enabled = state.settings.haptics) {
+            CameraLayout(state, actions, modifier, viewfinder)
         }
     }
 }
 
+@Composable
+private fun CameraLayout(
+    state: CameraUiState,
+    actions: CameraActions,
+    modifier: Modifier,
+    viewfinder: @Composable (Modifier) -> Unit,
+) {
+    var showEffects by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val messageText = state.message?.let { stringResource(it.label()) }
+    LaunchedEffect(state.message) {
+        val text = messageText ?: return@LaunchedEffect
+        actions.onMessageShown()
+        // Outside this effect: consuming the message restarts it, which must not cancel the snackbar.
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            snackbar.showSnackbar(text)
+        }
+    }
+    val iconRotation by animateFloatAsState(
+        targetValue = DeviceOrientation.iconRotationDegrees(state.rotation),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "iconRotation",
+    )
+    var lastBusy by remember { mutableStateOf(state.busy) }
+    SideEffect { if (state.busy != null) lastBusy = state.busy }
+
+    Box(modifier.fillMaxSize().background(Color.Black)) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+            CameraTopBar(
+                state = state,
+                actions = actions,
+                iconRotation = iconRotation,
+                onOpenEffects = { showEffects = true },
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
+            )
+            ViewfinderPanel(
+                state = state,
+                actions = actions,
+                viewfinder = viewfinder,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+            )
+            BottomControls(state = state, actions = actions, iconRotation = iconRotation)
+        }
+
+        CountdownOverlay(seconds = state.countdown, modifier = Modifier.align(Alignment.Center))
+
+        AnimatedVisibility(
+            visible = state.busy != null,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+            modifier = Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 76.dp),
+        ) {
+            // Keeps showing the last job while the pill animates away.
+            val busy = state.busy ?: lastBusy
+            if (busy != null) {
+                BusyPill(
+                    label = stringResource(if (busy.kind == BusyKind.DEVELOPING) R.string.busy_developing else R.string.busy_tape),
+                    progress = busy.progress,
+                )
+            }
+        }
+
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = 220.dp),
+        )
+    }
+
+    if (showEffects) {
+        EffectsSheet(state = state, actions = actions, onDismiss = { showEffects = false })
+    }
+}
+
 private fun CameraMessage.label(): Int = when (this) {
-    CameraMessage.PHOTO_SAVED -> R.string.msg_photo_saved
     CameraMessage.VIDEO_SAVED -> R.string.msg_video_saved
     CameraMessage.CAPTURE_FAILED -> R.string.msg_capture_failed
     CameraMessage.RECORDING_FAILED -> R.string.msg_recording_failed
@@ -438,15 +469,33 @@ private fun BottomControls(state: CameraUiState, actions: CameraActions, iconRot
     }
 }
 
+/** Latest capture as a cookie-shaped thumbnail that pops in, morphing from a circle, after each new shot. */
 @Composable
 private fun GalleryButton(latest: CapturedMedia?, rotation: Float, onClick: () -> Unit) {
-    val shape = MaterialShapes.Cookie4Sided.toShape()
     val description = stringResource(R.string.open_gallery)
+    val morph = remember { Morph(MaterialShapes.Circle, MaterialShapes.Cookie4Sided) }
+    val reveal = remember { Animatable(1f) }
+    val revealSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    var shownUri by remember { mutableStateOf(latest?.uri) }
+    LaunchedEffect(latest?.uri) {
+        val uri = latest?.uri
+        if (uri != null && uri != shownUri) {
+            shownUri = uri
+            reveal.snapTo(0f)
+            reveal.animateTo(1f, revealSpec)
+        }
+    }
+    val progress = reveal.value
     Box(
         modifier = Modifier
             .size(56.dp)
-            .rotate(rotation)
-            .clip(shape)
+            .graphicsLayer {
+                val scale = 0.6f + 0.4f * progress
+                scaleX = scale
+                scaleY = scale
+                rotationZ = rotation
+            }
+            .clip(MorphShape(morph, progress.coerceIn(0f, 1f)))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -465,6 +514,15 @@ private fun GalleryButton(latest: CapturedMedia?, rotation: Float, onClick: () -
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** [morph] at [progress], scaled to the bounds. */
+private class MorphShape(private val morph: Morph, private val progress: Float) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val path = morph.toPath(progress)
+        path.transform(Matrix().apply { scale(size.width, size.height) })
+        return Outline.Generic(path)
     }
 }
 

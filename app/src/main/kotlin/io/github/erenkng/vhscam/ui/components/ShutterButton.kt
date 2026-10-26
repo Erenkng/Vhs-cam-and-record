@@ -1,12 +1,9 @@
 package io.github.erenkng.vhscam.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -20,6 +17,7 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -32,6 +30,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -58,13 +58,15 @@ fun ShutterButton(
     val press by animateFloatAsState(if (pressed) 1f else 0f, motion.fastSpatialSpec(), label = "press")
     val record by animateFloatAsState(if (recording) 1f else 0f, motion.defaultSpatialSpec(), label = "record")
     val inner by animateColorAsState(if (video) CameraColors.Record else Color.White, motion.defaultEffectsSpec(), label = "inner")
-    val reel = rememberInfiniteTransition(label = "reel")
-    val spin by reel.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(9_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "spin",
-    )
+    // The reel only turns while the tape runs, so an idle camera screen does not redraw every frame.
+    val spin = remember { Animatable(0f) }
+    LaunchedEffect(recording) {
+        while (recording) {
+            spin.animateTo(360f, tween(9_000, easing = LinearEasing))
+            spin.snapTo(0f)
+        }
+    }
+    val haptics = LocalHapticFeedback.current
     val pressMorph = remember { Morph(MaterialShapes.Circle, MaterialShapes.Cookie9Sided) }
     val stopMorph = remember { Morph(MaterialShapes.Circle, MaterialShapes.Square) }
     val reelMorph = remember { Morph(MaterialShapes.Cookie12Sided, MaterialShapes.Cookie12Sided) }
@@ -80,7 +82,10 @@ fun ShutterButton(
                 indication = null,
                 role = Role.Button,
                 onClickLabel = contentDescription,
-                onClick = onClick,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -89,7 +94,7 @@ fun ShutterButton(
             val ringWidth = 4.dp.toPx()
             if (record > 0.01f) {
                 // A cassette reel turning behind the ring while the tape runs.
-                rotate(spin) {
+                rotate(spin.value) {
                     drawPolygonPath(reelMorph.toPath(0f, path), d, inset = 0f, color = CameraColors.Record.copy(alpha = 0.28f * record), matrix = matrix)
                 }
             }

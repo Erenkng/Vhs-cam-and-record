@@ -43,8 +43,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -89,6 +91,7 @@ fun ViewfinderPanel(
     val animatedBox by animateFloatAsState(boxAspect, motion.defaultSpatialSpec(), label = "box")
     val animatedCrop by animateFloatAsState(cropAspect, motion.defaultSpatialSpec(), label = "crop")
     val view = LocalView.current
+    val haptics = LocalHapticFeedback.current
     val currentZoom by rememberUpdatedState(state.zoom)
     val iconRotation by animateFloatAsState(
         DeviceOrientation.iconRotationDegrees(state.rotation),
@@ -107,10 +110,12 @@ fun ViewfinderPanel(
                     detectTapGestures(
                         onTap = { offset ->
                             val display = view.display ?: return@detectTapGestures
+                            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
                             actions.onTapFocus(offset.x, offset.y, size.width.toFloat(), size.height.toFloat(), display, false)
                         },
                         onLongPress = { offset ->
                             val display = view.display ?: return@detectTapGestures
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             actions.onTapFocus(offset.x, offset.y, size.width.toFloat(), size.height.toFloat(), display, true)
                         },
                     )
@@ -219,6 +224,7 @@ private fun ZoomPresets(zoom: ZoomInfo, rotation: Float, onZoom: (Float) -> Unit
         }
     }
     if (presets.size < 2) return
+    val haptics = LocalHapticFeedback.current
     // The active preset is the largest one not above the current zoom.
     val active = presets.lastOrNull { it <= zoom.ratio + 0.01f } ?: presets.first()
     Surface(
@@ -236,7 +242,10 @@ private fun ZoomPresets(zoom: ZoomInfo, rotation: Float, onZoom: (Float) -> Unit
                 val label = if (selected && abs(zoom.ratio - preset) > 0.05f) zoom.ratio else preset
                 FilledTonalIconToggleButton(
                     checked = selected,
-                    onCheckedChange = { onZoom(preset) },
+                    onCheckedChange = {
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onZoom(preset)
+                    },
                     shapes = IconButtonDefaults.toggleableShapes(),
                     modifier = Modifier.size(if (selected) 44.dp else 36.dp),
                 ) {

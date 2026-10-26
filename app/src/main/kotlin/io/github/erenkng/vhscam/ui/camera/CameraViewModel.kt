@@ -69,7 +69,8 @@ enum class BusyKind { DEVELOPING, TAPE_AUDIO }
 
 data class BusyUi(val kind: BusyKind, val progress: Float? = null)
 
-enum class CameraMessage { PHOTO_SAVED, VIDEO_SAVED, CAPTURE_FAILED, RECORDING_FAILED, CAMERA_ERROR }
+/** Snackbar messages. A saved photo needs none: the gallery thumbnail pops in instead. */
+enum class CameraMessage { VIDEO_SAVED, CAPTURE_FAILED, RECORDING_FAILED, CAMERA_ERROR }
 
 /** Session-defining settings; a change requires binding the camera again. */
 data class BindKey(val mode: CaptureMode, val front: Boolean, val aspect: AspectSetting?, val quality: VideoQuality?)
@@ -264,8 +265,10 @@ class CameraViewModel(
                 }
                 developing--
                 refreshBusy()
-                result.exceptionOrNull()?.let { Log.e(TAG, "Developing failed", it) }
-                message(if (result.isSuccess) CameraMessage.PHOTO_SAVED else CameraMessage.CAPTURE_FAILED)
+                result.exceptionOrNull()?.let {
+                    Log.e(TAG, "Developing failed", it)
+                    message(CameraMessage.CAPTURE_FAILED)
+                }
             }
         }
     }

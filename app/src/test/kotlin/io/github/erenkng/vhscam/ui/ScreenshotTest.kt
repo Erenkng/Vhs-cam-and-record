@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -23,6 +25,7 @@ import io.github.erenkng.vhscam.settings.AppSettings
 import io.github.erenkng.vhscam.ui.camera.CameraActions
 import io.github.erenkng.vhscam.ui.camera.CameraContent
 import io.github.erenkng.vhscam.ui.camera.CameraUiState
+import io.github.erenkng.vhscam.ui.camera.EffectsSheetContent
 import io.github.erenkng.vhscam.ui.camera.FocusStatus
 import io.github.erenkng.vhscam.ui.camera.FocusUi
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
@@ -93,6 +96,23 @@ class ScreenshotTest {
             actions = CameraActions(),
             viewfinder = { FakeScene(it) },
         )
+    }
+
+    @Test
+    fun effectsSheet() = capture("06_effects_sheet") {
+        VhsCamTheme(darkTheme = true, dynamicColor = false) {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                EffectsSheetContent(
+                    state = CameraUiState(
+                        settings = settings.copy(mode = CaptureMode.VIDEO, playOsd = true),
+                        settingsLoaded = true,
+                        capabilities = CameraCapabilities(hasFlash = true, minFocusDiopters = 10f),
+                        manualFocus = 2.5f,
+                    ),
+                    actions = CameraActions(),
+                )
+            }
+        }
     }
 
     @Test

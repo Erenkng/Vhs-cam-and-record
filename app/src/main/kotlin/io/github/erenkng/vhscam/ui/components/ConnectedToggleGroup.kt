@@ -10,6 +10,8 @@ import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -31,6 +33,7 @@ fun <T> ConnectedToggleGroup(
     icon: (@Composable (T) -> Unit)? = null,
     label: @Composable (T) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
@@ -49,7 +52,10 @@ fun <T> ConnectedToggleGroup(
             }
             ToggleButton(
                 checked = option == selected,
-                onCheckedChange = { onSelect(option) },
+                onCheckedChange = {
+                    if (option != selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    onSelect(option)
+                },
                 modifier = (if (fill) Modifier.weight(1f) else Modifier).semantics { role = Role.RadioButton },
                 buttonSize = buttonSize,
                 enabled = enabled,

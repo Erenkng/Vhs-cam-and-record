@@ -45,7 +45,6 @@
     <string name="busy_developing">Banyo ediliyor…</string>
     <string name="busy_tape">Kaset sesi işleniyor…</string>
 
-    <string name="msg_photo_saved">Fotoğraf Kasetler\'e kaydedildi</string>
     <string name="msg_video_saved">Kaset kaydedildi</string>
     <string name="msg_capture_failed">Fotoğraf çekilemedi</string>
     <string name="msg_recording_failed">Kayıt başarısız oldu</string>
