@@ -2,8 +2,8 @@ package io.github.erenkng.vhscam.core.look
 
 /** Early-2000s CCD point-and-shoot. Distances are in pixels of a 1600 px wide frame. */
 data class CcdParams(
-    val saturation: Float = 1.28f,
-    val contrast: Float = 1.14f,
+    val saturation: Float = 1.22f,
+    val contrast: Float = 1.1f,
     /** Where highlights start to clip hard. */
     val highlightKnee: Float = 0.82f,
     /** Purple fringing / lateral chromatic aberration near high-contrast edges. */
