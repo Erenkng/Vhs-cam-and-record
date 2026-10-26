@@ -13,13 +13,31 @@ android {
         applicationId = "io.github.erenkng.vhscam"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 500
+        versionName = "0.5"
+    }
+
+    signingConfigs {
+        // The release key never lives in the repository: CI decodes it from the
+        // SIGNING_KEYSTORE_BASE64 secret and passes its path and the SIGNING_PASSWORD secret.
+        // Without them, release builds come out unsigned.
+        val keystore = providers.environmentVariable("SIGNING_KEYSTORE").orNull
+        val password = providers.environmentVariable("SIGNING_PASSWORD").orNull
+        if (!keystore.isNullOrEmpty() && !password.isNullOrEmpty()) {
+            create("release") {
+                storeFile = file(keystore)
+                storeType = "pkcs12"
+                storePassword = password
+                keyAlias = "vhscam"
+                keyPassword = password
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

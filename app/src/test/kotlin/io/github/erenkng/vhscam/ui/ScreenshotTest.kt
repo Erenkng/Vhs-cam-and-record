@@ -143,7 +143,7 @@ class ScreenshotTest {
     @Test
     fun settingsScreen() = capture("05_settings") {
         VhsCamTheme(darkTheme = false, dynamicColor = false) {
-            SettingsContent(settings = settings, onChange = {}, onBack = {}, onOpenLicenses = {})
+            SettingsContent(settings = settings, versionName = "0.5", onChange = {}, onBack = {}, onOpenLicenses = {})
         }
     }
 }

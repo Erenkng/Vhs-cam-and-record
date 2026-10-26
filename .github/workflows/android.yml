@@ -33,18 +33,20 @@ jobs:
       - name: Lint
         run: ./gradlew :app:lintDebug
 
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug
-
-      - name: Print screenshots for review
-        if: always()
-        # Small JPEGs as base64 between markers, so the screenshots can be checked from the job log.
+      - name: Decode the signing key
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
         run: |
-          shopt -s nullglob
-          shots=(app/build/outputs/roborazzi/*.png)
-          if [ ${#shots[@]} -gt 0 ]; then
-            java -Djava.awt.headless=true tools/ci/PrintScreenshots.java 300 "${shots[@]}"
+          if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
+            printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/release.p12"
+            echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
           fi
+
+      - name: Build APKs
+        env:
+          # Signs the release APK when the secrets are available; otherwise it is built unsigned.
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew :app:assembleDebug :app:assembleRelease
 
       - name: Upload APK
         if: always()
@@ -71,3 +73,34 @@ jobs:
             app/build/reports
             core/build/reports
           if-no-files-found: ignore
+
+  # Pushes the screenshots of a pull request to the hidden ref refs/screenshots/pr-<number>
+  # (not a branch, so it stays out of the branch list), for reviewing them where artifact
+  # downloads are not possible:
+  #   git fetch origin refs/screenshots/pr-1 && git archive FETCH_HEAD | tar -x -C screenshots
+  screenshots:
+    needs: build
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: screenshots
+          path: screenshots
+
+      - name: Push the screenshots
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          [ -d screenshots ] || exit 0
+          cd screenshots
+          git init -q
+          git add .
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Screenshots of $HEAD_SHA"
+          git push -qf "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:refs/screenshots/pr-$PR"

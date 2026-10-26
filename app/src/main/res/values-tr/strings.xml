@@ -125,6 +125,7 @@
     <string name="dynamic_color">Duvar kâğıdı renkleri</string>
     <string name="dynamic_color_help">Renkleri duvar kâğıdından al (Android 12+)</string>
     <string name="settings_about">Hakkında</string>
+    <string name="version">Sürüm</string>
     <string name="licenses">Açık kaynak lisansları</string>
     <string name="licenses_help">VHS Cam\'in kullandığı fontlar ve ikonlar</string>
 </resources>

@@ -8,6 +8,10 @@ build/
 
 # Android
 local.properties
+# Signing keys belong in CI secrets, never in git
+*.jks
+*.keystore
+*.p12
 captures/
 .externalNativeBuild/
 .cxx/

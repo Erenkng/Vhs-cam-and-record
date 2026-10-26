@@ -1,5 +1,8 @@
 package io.github.erenkng.vhscam.ui.settings
 
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,17 +46,31 @@ fun SettingsScreen(onBack: () -> Unit, onOpenLicenses: () -> Unit) {
     val container = (LocalContext.current.applicationContext as VhsCamApp).container
     val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val versionName = remember { context.versionName() }
     SettingsContent(
         settings = settings,
+        versionName = versionName,
         onChange = { transform -> scope.launch { container.settings.update(transform) } },
         onBack = onBack,
         onOpenLicenses = onOpenLicenses,
     )
 }
 
+private fun Context.versionName(): String {
+    val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+    } else {
+        @Suppress("DEPRECATION")
+        packageManager.getPackageInfo(packageName, 0)
+    }
+    return info.versionName.orEmpty()
+}
+
 @Composable
 fun SettingsContent(
     settings: AppSettings,
+    versionName: String,
     onChange: ((AppSettings) -> AppSettings) -> Unit,
     onBack: () -> Unit,
     onOpenLicenses: () -> Unit,
@@ -139,8 +156,17 @@ fun SettingsContent(
             header(R.string.settings_about)
             item {
                 SegmentedListItem(
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                    leadingContent = { Icon(painterResource(R.drawable.ic_info), contentDescription = null) },
+                    supportingContent = { Text(versionName) },
+                ) {
+                    Text(stringResource(R.string.version))
+                }
+            }
+            item {
+                SegmentedListItem(
                     onClick = onOpenLicenses,
-                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
+                    shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
                     leadingContent = { Icon(painterResource(R.drawable.ic_description), contentDescription = null) },
                     supportingContent = { Text(stringResource(R.string.licenses_help)) },
                 ) {
