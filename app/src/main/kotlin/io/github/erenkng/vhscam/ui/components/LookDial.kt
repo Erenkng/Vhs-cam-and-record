@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlin.math.abs
+import kotlin.math.ceil
 
 /**
  * A camera-style dial: the options scroll sideways and the one in the middle is chosen.
@@ -303,6 +304,17 @@ fun <T> RulerDial(
     val accent = MaterialTheme.colorScheme.primary
     // Long scales get fine ticks; a handful of presets get room for every name.
     val dense = options.size > DENSE_OPTIONS
+    val itemWidth = if (dense) 20.dp else 64.dp
+    // Numbers at major stops, but never so close that they run into each other.
+    val labelled = remember(options, itemWidth) {
+        val every = ceil(MIN_LABEL_GAP / itemWidth).toInt().coerceAtLeast(1)
+        var last = -every
+        BooleanArray(options.size) { i ->
+            val show = major(i, options[i]) && i - last >= every
+            if (show) last = i
+            show
+        }
+    }
     Column(
         modifier = modifier.graphicsLayer { alpha = if (enabled) 1f else 0.4f },
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -318,13 +330,14 @@ fun <T> RulerDial(
                 options = options,
                 selected = selected,
                 onSelect = onSelect,
-                itemWidth = if (dense) 20.dp else 64.dp,
+                itemWidth = itemWidth,
                 height = 40.dp,
                 enabled = enabled,
                 live = true,
             ) { option, chosen, onClick ->
                 val index = options.indexOf(option)
                 val isMajor = major(index, option)
+                val showLabel = labelled.getOrElse(index) { false }
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -340,7 +353,7 @@ fun <T> RulerDial(
                             .height(if (isMajor) 14.dp else 8.dp)
                             .background(Color.White.copy(alpha = if (isMajor) 0.85f else 0.45f)),
                     )
-                    if (isMajor) {
+                    if (showLabel) {
                         Text(
                             text = label(option),
                             style = MaterialTheme.typography.labelSmall,
@@ -364,3 +377,4 @@ fun <T> RulerDial(
 }
 
 private const val DENSE_OPTIONS = 8
+private val MIN_LABEL_GAP = 56.dp

@@ -43,6 +43,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -50,6 +51,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -195,10 +197,13 @@ fun CameraContent(
     proSetting: ProSetting? = null,
     viewfinder: @Composable (Modifier) -> Unit,
 ) {
-    // The camera UI is always dark, whatever the system theme says.
+    // The camera UI is always dark, whatever the system theme says, and draws straight on black:
+    // icons and text are white unless a component picks its own colours.
     VhsCamTheme(darkTheme = true, dynamicColor = state.settings.dynamicColor) {
-        ProvideHaptics(enabled = state.settings.haptics) {
-            CameraLayout(state, actions, modifier, effectRowOpen, proSetting, viewfinder)
+        CompositionLocalProvider(LocalContentColor provides Color.White) {
+            ProvideHaptics(enabled = state.settings.haptics) {
+                CameraLayout(state, actions, modifier, effectRowOpen, proSetting, viewfinder)
+            }
         }
     }
 }

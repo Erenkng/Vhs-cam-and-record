@@ -129,6 +129,8 @@ fun OnboardingContent(onDone: () -> Unit, modifier: Modifier = Modifier, initial
                 .background(Background),
         ) {
             Backdrop(pager)
+            // Faint CRT lines behind everything, so text and buttons stay clean.
+            Scanlines()
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                 TopRow(showSkip = !last, onSkip = finish)
                 HorizontalPager(
@@ -161,7 +163,6 @@ fun OnboardingContent(onDone: () -> Unit, modifier: Modifier = Modifier, initial
                     )
                 }
             }
-            Scanlines()
             // The picture flares white as the tube switches off.
             Box(
                 Modifier
@@ -205,7 +206,7 @@ private fun Backdrop(pager: PagerState) {
     )
 }
 
-/** Faint CRT lines over everything. */
+/** Faint CRT lines. */
 @Composable
 private fun Scanlines() {
     Canvas(Modifier.fillMaxSize()) {
