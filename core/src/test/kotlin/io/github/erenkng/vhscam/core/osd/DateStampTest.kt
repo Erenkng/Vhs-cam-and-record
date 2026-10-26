@@ -32,6 +32,14 @@ class DateStampTest {
     }
 
     @Test
+    fun cctvStampHasSecondsAndA24HourClock() {
+        val t = LocalDateTime.of(1998, 6, 14, 15, 42, 7)
+        assertEquals("14-06-1998 15:42:07", DateStamp.cctvStamp(t, DateOrder.DAY_MONTH_YEAR))
+        assertEquals("06-14-1998 15:42:07", DateStamp.cctvStamp(t, DateOrder.MONTH_DAY_YEAR))
+        assertEquals("1998-06-14 15:42:07", DateStamp.cctvStamp(t, DateOrder.YEAR_MONTH_DAY))
+    }
+
+    @Test
     fun tapeCounter() {
         assertEquals("0:00:00", DateStamp.tapeCounter(0))
         assertEquals("0:01:05", DateStamp.tapeCounter(65_400))

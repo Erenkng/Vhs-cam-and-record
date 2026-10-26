@@ -66,6 +66,19 @@ object DateStamp {
         return "$date ${dateTime.hour.twoDigits()}:${dateTime.minute.twoDigits()}"
     }
 
+    /** Security camera stamp with seconds, always 24-hour, e.g. `14-06-1998 15:42:07`. */
+    fun cctvStamp(dateTime: LocalDateTime, order: DateOrder): String {
+        val d = dateTime.dayOfMonth.twoDigits()
+        val m = dateTime.monthValue.twoDigits()
+        val y = dateTime.year.toString()
+        val date = when (order) {
+            DateOrder.MONTH_DAY_YEAR -> "$m-$d-$y"
+            DateOrder.DAY_MONTH_YEAR -> "$d-$m-$y"
+            DateOrder.YEAR_MONTH_DAY -> "$y-$m-$d"
+        }
+        return "$date ${dateTime.hour.twoDigits()}:${dateTime.minute.twoDigits()}:${dateTime.second.twoDigits()}"
+    }
+
     /** VCR tape counter, e.g. `0:01:05`. */
     fun tapeCounter(elapsedMillis: Long): String {
         val totalSeconds = (elapsedMillis.coerceAtLeast(0L) / 1000L)

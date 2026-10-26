@@ -1,20 +1,44 @@
 package io.github.erenkng.vhscam.core.look
 
-/** Capture modes offered by the camera screen. */
-enum class CaptureMode { PHOTO, VIDEO }
+/** Capture modes offered by the camera screen. [DUAL] films with two cameras at once. */
+enum class CaptureMode { PHOTO, VIDEO, DUAL }
 
 /**
- * Retro looks for photos. Video always uses [VHS].
+ * Retro looks. Every look takes photos; the ones with [video] can also record.
  *
- * @param cropAspect fixed width / height of the look (landscape orientation), or `null` when the
- *   look follows the user's aspect-ratio setting.
+ * @param cropAspect fixed width / height of the look's photos (landscape orientation), or
+ *   `null` when the look follows the user's aspect-ratio setting.
  * @param stillLongEdge long edge, in pixels, of the processed photo.
+ * @param workLines height of the working frame the look is rendered at, for the looks that get
+ *   their character from a low resolution; `null` renders at the output resolution.
+ * @param holdFrames the look shows a new picture every this many camera frames (low frame rate).
  */
-enum class PhotoLook(val cropAspect: Float?, val stillLongEdge: Int, val filePrefix: String) {
-    VHS(cropAspect = null, stillLongEdge = 1440, filePrefix = "VHS"),
-    CCD(cropAspect = 4f / 3f, stillLongEdge = 1600, filePrefix = "CCD"),
-    FILM(cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "FILM"),
-    POLAROID(cropAspect = 1f, stillLongEdge = 1600, filePrefix = "POLA"),
+enum class Look(
+    val cropAspect: Float?,
+    val stillLongEdge: Int,
+    val filePrefix: String,
+    val video: Boolean,
+    val workLines: Int?,
+    val holdFrames: Int = 1,
+) {
+    VHS(cropAspect = null, stillLongEdge = 1440, filePrefix = "VHS", video = true, workLines = 480),
+    CCD(cropAspect = 4f / 3f, stillLongEdge = 1600, filePrefix = "CCD", video = false, workLines = null),
+    FILM(cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "FILM", video = false, workLines = null),
+    POLAROID(cropAspect = 1f, stillLongEdge = 1600, filePrefix = "POLA", video = false, workLines = null),
+
+    /** 8-bit handheld camera: 128 x 112 pixels in four shades of green, 8x magnified photos. */
+    GAMEBOY(cropAspect = 8f / 7f, stillLongEdge = 1024, filePrefix = "8BIT", video = true, workLines = 112, holdFrames = 2),
+
+    /** Mid-2000s USB webcam: QVGA, 15 fps. */
+    WEBCAM(cropAspect = 4f / 3f, stillLongEdge = 960, filePrefix = "WEBCAM", video = true, workLines = 240, holdFrames = 2),
+
+    /** Security camera: black and white, 5 fps, time stamp. */
+    CCTV(cropAspect = 4f / 3f, stillLongEdge = 1152, filePrefix = "CCTV", video = true, workLines = 288, holdFrames = 6),
+    ;
+
+    companion object {
+        val videoLooks: List<Look> = entries.filter { it.video }
+    }
 }
 
 /** Aspect ratios offered for VHS photos and videos. */
@@ -25,3 +49,29 @@ enum class AspectSetting(val ratio: Float) {
 
 /** VHS recording speed. EP squeezes the most tape out of a cassette and looks the worst. */
 enum class TapeSpeed { SP, LP, EP }
+
+/** The digital effects button of a 90s camcorder. Used with the VHS look. */
+enum class CamcorderEffect(val holdFrames: Int = 1) {
+    NONE,
+    NIGHT_VISION,
+    SEPIA,
+    MONO,
+    MOSAIC,
+
+    /** Stepped motion, about 7 pictures a second. */
+    STROBE(holdFrames = 4),
+
+    /** Moving bright things leave a fading trail. */
+    TRAIL,
+}
+
+/** Colour the camcorder fader fades to and from. */
+enum class FadeColor { BLACK, WHITE }
+
+/** Interval recording: one short snippet every [seconds]. */
+enum class IntervalSetting(val seconds: Int) {
+    OFF(0),
+    S10(10),
+    S30(30),
+    M1(60),
+}
