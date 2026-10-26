@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's cassette for the splash screen: it slides up into place while its reels turn. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="108dp"
+            android:height="108dp"
+            android:viewportWidth="108"
+            android:viewportHeight="108">
+            <group
+                android:name="cassette"
+                android:pivotX="54"
+                android:pivotY="54">
+                <path
+                    android:fillColor="#2A2930"
+                    android:pathData="M32,37H76A5,5 0,0 1,81 42V66A5,5 0,0 1,76 71H32A5,5 0,0 1,27 66V42A5,5 0,0 1,32 37Z" />
+                <path
+                    android:fillColor="#F5E9DA"
+                    android:pathData="M33.5,41H74.5A2.5,2.5 0,0 1,77 43.5V53.5A2.5,2.5 0,0 1,74.5 56H33.5A2.5,2.5 0,0 1,31 53.5V43.5A2.5,2.5 0,0 1,33.5 41Z" />
+                <path
+                    android:fillColor="#E53935"
+                    android:pathData="M31,47H77V49H31Z" />
+                <path
+                    android:fillColor="#FB8C00"
+                    android:pathData="M31,49H77V51H31Z" />
+                <path
+                    android:fillColor="#FDD835"
+                    android:pathData="M31,51H77V53H31Z" />
+                <path
+                    android:fillColor="#141317"
+                    android:pathData="M39.5,59H68.5A4.5,4.5 0,0 1,73 63.5A4.5,4.5 0,0 1,68.5 68H39.5A4.5,4.5 0,0 1,35 63.5A4.5,4.5 0,0 1,39.5 59Z" />
+                <group
+                    android:name="reelLeft"
+                    android:pivotX="44"
+                    android:pivotY="63.5">
+                    <path
+                        android:fillColor="#F5E9DA"
+                        android:pathData="M40.5,63.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0Z" />
+                    <path
+                        android:fillColor="#2A2930"
+                        android:pathData="M43.6,60.4h0.8v1.5h-0.8Z" />
+                    <group
+                        android:pivotX="44"
+                        android:pivotY="63.5"
+                        android:rotation="120">
+                        <path
+                            android:fillColor="#2A2930"
+                            android:pathData="M43.6,60.4h0.8v1.5h-0.8Z" />
+                    </group>
+                    <group
+                        android:pivotX="44"
+                        android:pivotY="63.5"
+                        android:rotation="240">
+                        <path
+                            android:fillColor="#2A2930"
+                            android:pathData="M43.6,60.4h0.8v1.5h-0.8Z" />
+                    </group>
+                    <path
+                        android:fillColor="#2A2930"
+                        android:pathData="M43,63.5a1,1 0,1 0,2 0a1,1 0,1 0,-2 0Z" />
+                </group>
+                <group
+                    android:name="reelRight"
+                    android:pivotX="64"
+                    android:pivotY="63.5">
+                    <path
+                        android:fillColor="#F5E9DA"
+                        android:pathData="M60.5,63.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0Z" />
+                    <path
+                        android:fillColor="#2A2930"
+                        android:pathData="M63.6,60.4h0.8v1.5h-0.8Z" />
+                    <group
+                        android:pivotX="64"
+                        android:pivotY="63.5"
+                        android:rotation="120">
+                        <path
+                            android:fillColor="#2A2930"
+                            android:pathData="M63.6,60.4h0.8v1.5h-0.8Z" />
+                    </group>
+                    <group
+                        android:pivotX="64"
+                        android:pivotY="63.5"
+                        android:rotation="240">
+                        <path
+                            android:fillColor="#2A2930"
+                            android:pathData="M63.6,60.4h0.8v1.5h-0.8Z" />
+                    </group>
+                    <path
+                        android:fillColor="#2A2930"
+                        android:pathData="M63,63.5a1,1 0,1 0,2 0a1,1 0,1 0,-2 0Z" />
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <target android:name="cassette">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:duration="520"
+                    android:interpolator="@android:interpolator/overshoot"
+                    android:propertyName="translateY"
+                    android:valueFrom="18"
+                    android:valueTo="0"
+                    android:valueType="floatType" />
+                <objectAnimator
+                    android:duration="520"
+                    android:interpolator="@android:interpolator/decelerate_cubic"
+                    android:propertyName="scaleX"
+                    android:valueFrom="0.8"
+                    android:valueTo="1"
+                    android:valueType="floatType" />
+                <objectAnimator
+                    android:duration="520"
+                    android:interpolator="@android:interpolator/decelerate_cubic"
+                    android:propertyName="scaleY"
+                    android:valueFrom="0.8"
+                    android:valueTo="1"
+                    android:valueType="floatType" />
+            </set>
+        </aapt:attr>
+    </target>
+    <target android:name="reelLeft">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="900"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="rotation"
+                android:valueFrom="0"
+                android:valueTo="540"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+    <target android:name="reelRight">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="900"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="rotation"
+                android:valueFrom="0"
+                android:valueTo="540"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+</animated-vector>

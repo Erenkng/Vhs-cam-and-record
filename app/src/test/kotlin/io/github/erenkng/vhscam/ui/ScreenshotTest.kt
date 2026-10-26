@@ -38,6 +38,7 @@ import io.github.erenkng.vhscam.ui.camera.IntervalUi
 import io.github.erenkng.vhscam.ui.camera.ProSetting
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
 import io.github.erenkng.vhscam.ui.gallery.GalleryContent
+import io.github.erenkng.vhscam.ui.onboarding.OnboardingContent
 import io.github.erenkng.vhscam.ui.permission.PermissionContent
 import io.github.erenkng.vhscam.ui.restyle.RestyleContent
 import io.github.erenkng.vhscam.ui.restyle.RestyleUiState
@@ -68,6 +69,25 @@ class ScreenshotTest {
         composeRule.setContent(content)
         composeRule.mainClock.advanceTimeBy(1_200)
         composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
+    }
+
+    @Test
+    fun onboardingTape() = capture("12_onboarding_1") { Onboarding(page = 0) }
+
+    @Test
+    fun onboardingLooks() = capture("13_onboarding_2") { Onboarding(page = 1) }
+
+    @Test
+    fun onboardingEffects() = capture("14_onboarding_3") { Onboarding(page = 2) }
+
+    @Test
+    fun onboardingShare() = capture("15_onboarding_4") { Onboarding(page = 3) }
+
+    @Composable
+    private fun Onboarding(page: Int) {
+        VhsCamTheme(darkTheme = true, dynamicColor = false) {
+            OnboardingContent(onDone = {}, initialPage = page)
+        }
     }
 
     @Test
