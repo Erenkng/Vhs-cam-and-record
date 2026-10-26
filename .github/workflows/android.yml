@@ -36,6 +36,18 @@ jobs:
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug
 
+      - name: Print screenshots for review
+        if: always()
+        # Small JPEGs as base64 between markers, so the screenshots can be checked from the job log.
+        run: |
+          for f in app/build/outputs/roborazzi/*.png; do
+            [ -e "$f" ] || continue
+            echo "=== SCREENSHOT $(basename "$f") ==="
+            convert "$f" -resize 300x -quality 55 jpg:- | base64 -w 0
+            echo
+            echo "=== END ==="
+          done
+
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v4
