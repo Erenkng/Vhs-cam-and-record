@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Cassette body with the label and tape window cut out. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M32,37H76A5,5 0,0 1,81 42V66A5,5 0,0 1,76 71H32A5,5 0,0 1,27 66V42A5,5 0,0 1,32 37ZM33.5,41H74.5A2.5,2.5 0,0 1,77 43.5V53.5A2.5,2.5 0,0 1,74.5 56H33.5A2.5,2.5 0,0 1,31 53.5V43.5A2.5,2.5 0,0 1,33.5 41ZM39.5,59H68.5A4.5,4.5 0,0 1,73 63.5A4.5,4.5 0,0 1,68.5 68H39.5A4.5,4.5 0,0 1,35 63.5A4.5,4.5 0,0 1,39.5 59Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40.5,63.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0ZM60.5,63.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0ZM31,47H77V53H31Z" />
+</vector>

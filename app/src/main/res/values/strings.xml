@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">VHS Cam</string>
+
+    <!-- Permission -->
+    <string name="permission_title">Roll the tape</string>
+    <string name="permission_body">VHS Cam needs the camera to film and take photos. The microphone is optional and gives your tapes their sound.</string>
+    <string name="permission_grant">Allow camera</string>
+    <string name="permission_settings">Open settings</string>
+    <string name="permission_denied">Camera access is off. You can turn it on in the app settings.</string>
+
+    <!-- Modes and looks -->
+    <string name="mode_photo">Photo</string>
+    <string name="mode_video">VHS</string>
+    <string name="look_vhs">VHS</string>
+    <string name="look_ccd">Digicam</string>
+    <string name="look_film">35mm</string>
+    <string name="look_polaroid">Instant</string>
+    <string name="speed_sp">SP</string>
+    <string name="speed_lp">LP</string>
+    <string name="speed_ep">EP</string>
+
+    <!-- Camera controls -->
+    <string name="shutter_photo">Take photo</string>
+    <string name="shutter_record">Start recording</string>
+    <string name="shutter_stop">Stop recording</string>
+    <string name="pause_recording">Pause recording</string>
+    <string name="resume_recording">Resume recording</string>
+    <string name="paused">PAUSED</string>
+    <string name="flip_camera">Switch camera</string>
+    <string name="open_gallery">Open tapes</string>
+    <string name="flash_off">Flash off</string>
+    <string name="flash_auto">Flash auto</string>
+    <string name="flash_on">Flash on</string>
+    <string name="torch_on">Video light on</string>
+    <string name="torch_off">Video light off</string>
+    <string name="timer_off">Self-timer off</string>
+    <string name="timer_3">Self-timer 3 seconds</string>
+    <string name="timer_10">Self-timer 10 seconds</string>
+    <string name="grid_on">Grid on</string>
+    <string name="grid_off">Grid off</string>
+    <string name="aspect_4_3">4:3</string>
+    <string name="aspect_16_9">16:9</string>
+    <string name="aspect_ratio">Aspect ratio</string>
+    <string name="effects">Look and tape settings</string>
+    <string name="settings">Settings</string>
+    <string name="exposure">Exposure</string>
+    <string name="ae_af_lock">AE/AF LOCK</string>
+    <string name="zoom_value">%1$s×</string>
+    <string name="busy_developing">Developing…</string>
+    <string name="busy_tape">Dubbing tape audio…</string>
+
+    <!-- Messages -->
+    <string name="msg_video_saved">Tape saved</string>
+    <string name="msg_capture_failed">Could not take the photo</string>
+    <string name="msg_recording_failed">Recording failed</string>
+    <string name="msg_camera_error">The camera ran into a problem</string>
+
+    <!-- Effects sheet -->
+    <string name="sheet_tape">Tape</string>
+    <string name="sheet_look">Look</string>
+    <string name="tape_speed">Tape speed</string>
+    <string name="tape_speed_help">SP is the cleanest, EP the most worn.</string>
+    <string name="wear">Tape wear</string>
+    <string name="intensity">Intensity</string>
+    <string name="advanced">Fine tuning</string>
+    <string name="color_bleed">Colour bleed</string>
+    <string name="noise">Noise and dropouts</string>
+    <string name="tracking">Tracking errors</string>
+    <string name="jitter">Line jitter</string>
+    <string name="sharpen">Edge halos</string>
+    <string name="head_switch">Head-switching band</string>
+    <string name="scanlines">Scanlines</string>
+    <string name="vignette">Vignette</string>
+    <string name="reset">Reset</string>
+    <string name="sheet_osd">On-screen display</string>
+    <string name="date_stamp">Date stamp</string>
+    <string name="time_stamp">Show time</string>
+    <string name="play_osd">PLAY ▶ overlay</string>
+    <string name="counter_osd">Tape counter</string>
+    <string name="date_format">Date format</string>
+    <string name="clock_24h">24-hour clock</string>
+    <string name="camcorder_clock">Camcorder clock</string>
+    <string name="camcorder_clock_real">Real date and time</string>
+    <string name="camcorder_clock_custom">Set to %1$s</string>
+    <string name="set_clock">Set date…</string>
+    <string name="use_real_time">Use real time</string>
+    <string name="sheet_pro">Pro</string>
+    <string name="manual_focus">Manual focus</string>
+    <string name="manual_focus_unavailable">This lens has fixed focus</string>
+    <string name="focus_near">Near</string>
+    <string name="focus_far">Far</string>
+    <string name="white_balance">White balance</string>
+    <string name="wb_auto">Auto</string>
+    <string name="wb_daylight">Daylight</string>
+    <string name="wb_cloudy">Cloudy</string>
+    <string name="wb_incandescent">Tungsten</string>
+    <string name="wb_fluorescent">Fluorescent</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <!-- Gallery -->
+    <string name="gallery_title">Tapes</string>
+    <string name="gallery_empty">No tapes yet. Go film something!</string>
+    <string name="back">Back</string>
+    <string name="share">Share</string>
+    <string name="delete">Delete</string>
+    <string name="delete_photo_title">Delete this photo?</string>
+    <string name="delete_video_title">Delete this tape?</string>
+    <string name="delete_body">It will be removed from your device.</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <plurals name="gallery_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+
+    <!-- Settings -->
+    <string name="settings_video">Video</string>
+    <string name="video_quality">Recording quality</string>
+    <string name="video_quality_help">480p is the authentic VHS resolution; 720p and 1080p upscale the tape look for sharing.</string>
+    <string name="quality_sd">480p</string>
+    <string name="quality_hd">720p</string>
+    <string name="quality_fhd">1080p</string>
+    <string name="microphone">Record sound</string>
+    <string name="microphone_help">Uses the microphone while filming</string>
+    <string name="tape_audio">Tape sound</string>
+    <string name="tape_audio_help">Adds hiss, wow and flutter after recording (takes a few seconds)</string>
+    <string name="settings_camera">Camera</string>
+    <string name="mirror_selfies">Mirror selfies</string>
+    <string name="mirror_selfies_help">Save front-camera photos the way the preview shows them</string>
+    <string name="shutter_sound">Shutter sound</string>
+    <string name="haptics">Haptic feedback</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="dynamic_color">Wallpaper colours</string>
+    <string name="dynamic_color_help">Use colours from your wallpaper (Android 12+)</string>
+    <string name="settings_about">About</string>
+    <string name="version">Version</string>
+    <string name="licenses">Open-source licences</string>
+    <string name="licenses_help">Fonts and icons used in VHS Cam</string>
+</resources>
