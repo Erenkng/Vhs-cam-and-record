@@ -22,24 +22,30 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Check the signing secrets
+      # The permanent key comes from the SIGNING_KEYSTORE_BASE64 and SIGNING_PASSWORD secrets.
+      # Without them the release is signed with a one-time key that only exists in this job,
+      # so it still installs, but the next release cannot update it in place.
+      - name: Prepare the signing key
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: |
-          if [ -z "$SIGNING_KEYSTORE_BASE64" ] || [ -z "$SIGNING_PASSWORD" ]; then
-            echo "::error::Add the SIGNING_KEYSTORE_BASE64 and SIGNING_PASSWORD repository secrets (Settings > Secrets and variables > Actions)."
-            exit 1
+          keystore="$RUNNER_TEMP/release.p12"
+          if [ -n "$SIGNING_KEYSTORE_BASE64" ] && [ -n "$SIGNING_PASSWORD" ]; then
+            printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$keystore"
+            password="$SIGNING_PASSWORD"
+            echo "ONE_TIME_KEY=false" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No signing secrets; signing with a one-time key."
+            password="$(openssl rand -hex 24)"
+            echo "::add-mask::$password"
+            keytool -genkeypair -keystore "$keystore" -storetype PKCS12 -storepass "$password" -keypass "$password" \
+              -alias vhscam -keyalg RSA -keysize 4096 -sigalg SHA256withRSA -validity 10000 \
+              -dname "CN=VHS Cam, OU=Android, O=Erenkng"
+            echo "ONE_TIME_KEY=true" >> "$GITHUB_ENV"
           fi
-
-      - name: Decode the signing key
-        env:
-          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
-            printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/release.p12"
-            echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
-          fi
+          echo "SIGNING_KEYSTORE=$keystore" >> "$GITHUB_ENV"
+          echo "SIGNING_PASSWORD=$password" >> "$GITHUB_ENV"
 
       - name: Tests
         run: |
@@ -47,8 +53,6 @@ jobs:
           ./gradlew :app:testDebugUnitTest
 
       - name: Build the signed APK
-        env:
-          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: ./gradlew :app:assembleRelease
 
       - name: Verify the signature
@@ -64,9 +68,15 @@ jobs:
           apk="VHS-Cam-$tag.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
-          notes="docs/release-notes/$tag.md"
-          if [ -f "$notes" ]; then
-            gh release create "$tag" "$apk" "$apk.sha256" --title "VHS Cam $tag" --notes-file "$notes"
+          notes="$RUNNER_TEMP/notes.md"
+          if [ -f "docs/release-notes/$tag.md" ]; then
+            cp "docs/release-notes/$tag.md" "$notes"
           else
-            gh release create "$tag" "$apk" "$apk.sha256" --title "VHS Cam $tag" --generate-notes
+            echo "VHS Cam $tag" > "$notes"
           fi
+          if [ "$ONE_TIME_KEY" = true ]; then
+            printf '\n> **Not:** Bu APK tek seferlik bir anahtarla imzalandı. Sonraki bir sürümü kurmadan önce bu sürümü kaldırmanız gerekir; çektiğiniz fotoğraf ve videolar telefonun galerisinde kalır.\n' >> "$notes"
+          else
+            printf '\n> APK, projenin kalıcı sürüm anahtarıyla imzalıdır; sonraki sürümler bunun üzerine güncelleme olarak kurulur.\n' >> "$notes"
+          fi
+          gh release create "$tag" "$apk" "$apk.sha256" --title "VHS Cam $tag" --notes-file "$notes"
