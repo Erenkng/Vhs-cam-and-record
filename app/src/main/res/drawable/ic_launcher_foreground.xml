@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A VHS cassette inside the adaptive-icon safe zone (66dp circle). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1C1B1F"
+        android:pathData="M32,37H76A5,5 0,0 1,81 42V66A5,5 0,0 1,76 71H32A5,5 0,0 1,27 66V42A5,5 0,0 1,32 37Z" />
+    <path
+        android:fillColor="#F5E9DA"
+        android:pathData="M33.5,41H74.5A2.5,2.5 0,0 1,77 43.5V53.5A2.5,2.5 0,0 1,74.5 56H33.5A2.5,2.5 0,0 1,31 53.5V43.5A2.5,2.5 0,0 1,33.5 41Z" />
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M31,47H77V49H31Z" />
+    <path
+        android:fillColor="#FB8C00"
+        android:pathData="M31,49H77V51H31Z" />
+    <path
+        android:fillColor="#FDD835"
+        android:pathData="M31,51H77V53H31Z" />
+    <path
+        android:fillColor="#2E2D33"
+        android:pathData="M39.5,59H68.5A4.5,4.5 0,0 1,73 63.5A4.5,4.5 0,0 1,68.5 68H39.5A4.5,4.5 0,0 1,35 63.5A4.5,4.5 0,0 1,39.5 59Z" />
+    <path
+        android:fillColor="#F5E9DA"
+        android:pathData="M40.5,63.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0ZM60.5,63.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0Z" />
+    <path
+        android:fillColor="#1C1B1F"
+        android:pathData="M42.6,63.5a1.4,1.4 0,1 0,2.8 0a1.4,1.4 0,1 0,-2.8 0ZM62.6,63.5a1.4,1.4 0,1 0,2.8 0a1.4,1.4 0,1 0,-2.8 0Z" />
+</vector>
