@@ -537,6 +537,7 @@ private fun BottomControls(
     onProSetting: (ProSetting) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val motion = MaterialTheme.motionScheme
     Column(
         modifier = modifier.padding(top = 12.dp, bottom = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -546,8 +547,7 @@ private fun BottomControls(
         AnimatedContent(
             targetState = state.isPro,
             transitionSpec = {
-                (fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) togetherWith
-                    fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()))
+                (fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
                     .using(SizeTransform(clip = false))
             },
             label = "lookOrPro",

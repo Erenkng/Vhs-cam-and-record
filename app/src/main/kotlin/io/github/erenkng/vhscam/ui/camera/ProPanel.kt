@@ -64,12 +64,13 @@ fun ProPanel(state: CameraUiState, actions: CameraActions, open: ProSetting?, on
     val awb = stringResource(R.string.pro_awb)
     val isoRange = caps.isoRange
     val timeRange = caps.exposureTimeRange
+    val motion = MaterialTheme.motionScheme
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         AnimatedContent(
             targetState = open,
             transitionSpec = {
-                (fadeIn() + expandVertically(MaterialTheme.motionScheme.fastSpatialSpec()) togetherWith
-                    fadeOut() + shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()))
+                (fadeIn() + expandVertically(motion.fastSpatialSpec()) togetherWith
+                    fadeOut() + shrinkVertically(motion.fastSpatialSpec()))
                     .using(SizeTransform(clip = false))
             },
             label = "proDial",
