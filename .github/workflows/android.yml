@@ -40,13 +40,11 @@ jobs:
         if: always()
         # Small JPEGs as base64 between markers, so the screenshots can be checked from the job log.
         run: |
-          for f in app/build/outputs/roborazzi/*.png; do
-            [ -e "$f" ] || continue
-            echo "=== SCREENSHOT $(basename "$f") ==="
-            convert "$f" -resize 300x -quality 55 jpg:- | base64 -w 0
-            echo
-            echo "=== END ==="
-          done
+          shopt -s nullglob
+          shots=(app/build/outputs/roborazzi/*.png)
+          if [ ${#shots[@]} -gt 0 ]; then
+            java -Djava.awt.headless=true tools/ci/PrintScreenshots.java 300 "${shots[@]}"
+          fi
 
       - name: Upload APK
         if: always()

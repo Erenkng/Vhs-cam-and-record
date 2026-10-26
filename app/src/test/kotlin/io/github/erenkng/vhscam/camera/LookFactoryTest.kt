@@ -46,11 +46,20 @@ class LookFactoryTest {
 
     @Test
     fun centreCropKeepsTheMiddle() {
-        // 3:2 out of 4:3: full height, 8/9 of the width.
-        val crop = VhsSurfaceProcessor.centreCrop(4f / 3f, 3f / 2f)!!
-        assertEquals(1f, crop.d, 1e-4f)
-        assertEquals(8f / 9f, crop.a, 1e-4f)
-        assertEquals((1f - 8f / 9f) / 2f, crop.e, 1e-4f)
+        // 3:2 is wider than 4:3: full width, 8/9 of the height.
+        val wide = VhsSurfaceProcessor.centreCrop(4f / 3f, 3f / 2f)!!
+        assertEquals(1f, wide.a, 1e-4f)
+        assertEquals(0f, wide.e, 1e-4f)
+        assertEquals(8f / 9f, wide.d, 1e-4f)
+        assertEquals((1f - 8f / 9f) / 2f, wide.f, 1e-4f)
+
+        // A square out of 4:3: full height, the middle 3/4 of the width.
+        val square = VhsSurfaceProcessor.centreCrop(4f / 3f, 1f)!!
+        assertEquals(0.75f, square.a, 1e-4f)
+        assertEquals(0.125f, square.e, 1e-4f)
+        assertEquals(1f, square.d, 1e-4f)
+        assertEquals(0f, square.f, 1e-4f)
+
         assertNull(VhsSurfaceProcessor.centreCrop(1f, 1f))
     }
 }
