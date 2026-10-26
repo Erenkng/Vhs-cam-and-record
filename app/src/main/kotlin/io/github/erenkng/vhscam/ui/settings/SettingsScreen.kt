@@ -39,6 +39,8 @@ import io.github.erenkng.vhscam.VhsCamApp
 import io.github.erenkng.vhscam.settings.AppSettings
 import io.github.erenkng.vhscam.settings.VideoQuality
 import io.github.erenkng.vhscam.ui.components.ConnectedToggleGroup
+import io.github.erenkng.vhscam.ui.components.groupToggleColors
+import io.github.erenkng.vhscam.ui.components.groupedRowColors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -108,6 +110,7 @@ fun SettingsContent(
                         options = VideoQuality.entries,
                         selected = settings.videoQuality,
                         onSelect = { q -> onChange { it.copy(videoQuality = q) } },
+                        colors = groupToggleColors(),
                         fill = true,
                         modifier = Modifier.fillMaxWidth(),
                     ) { q -> Text(stringResource(q.label())) }
@@ -157,6 +160,7 @@ fun SettingsContent(
             item {
                 SegmentedListItem(
                     shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                    colors = groupedRowColors(),
                     leadingContent = { Icon(painterResource(R.drawable.ic_info), contentDescription = null) },
                     supportingContent = { Text(versionName) },
                 ) {
@@ -167,6 +171,7 @@ fun SettingsContent(
                 SegmentedListItem(
                     onClick = onOpenLicenses,
                     shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                    colors = groupedRowColors(),
                     leadingContent = { Icon(painterResource(R.drawable.ic_description), contentDescription = null) },
                     supportingContent = { Text(stringResource(R.string.licenses_help)) },
                 ) {
@@ -206,6 +211,7 @@ private fun LazyListScope.toggles(items: List<Toggle>) {
                 checked = toggle.checked,
                 onCheckedChange = toggle.onChange,
                 shapes = ListItemDefaults.segmentedShapes(index = index, count = items.size),
+                colors = groupedRowColors(),
                 enabled = toggle.enabled,
                 leadingContent = { Icon(painterResource(toggle.icon), contentDescription = null) },
                 supportingContent = if (summary != null) {
@@ -261,6 +267,7 @@ fun LicensesScreen(onBack: () -> Unit) {
                     SegmentedListItem(
                         onClick = { expanded = if (expanded == name) null else name },
                         shapes = ListItemDefaults.segmentedShapes(index = index, count = texts.size),
+                        colors = groupedRowColors(),
                         supportingContent = if (expanded == name) {
                             { Text(text, style = MaterialTheme.typography.bodySmall) }
                         } else {

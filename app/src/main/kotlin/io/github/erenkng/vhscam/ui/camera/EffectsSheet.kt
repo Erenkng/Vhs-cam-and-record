@@ -19,8 +19,10 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,6 +54,8 @@ import io.github.erenkng.vhscam.core.osd.DateStamp
 import io.github.erenkng.vhscam.settings.WhiteBalance
 import io.github.erenkng.vhscam.ui.components.AppSlider
 import io.github.erenkng.vhscam.ui.components.ConnectedToggleGroup
+import io.github.erenkng.vhscam.ui.components.groupToggleColors
+import io.github.erenkng.vhscam.ui.components.groupedRowColors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -92,6 +96,7 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
                         options = TapeSpeed.entries,
                         selected = settings.tapeSpeed,
                         onSelect = { speed -> change { it.copy(tapeSpeed = speed) } },
+                        colors = groupToggleColors(),
                         fill = true,
                         modifier = Modifier.fillMaxWidth(),
                     ) { speed -> Text(stringResource(speed.label())) }
@@ -109,9 +114,13 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
             }
             item {
                 val arrow by animateFloatAsState(if (showAdvanced) 90f else 0f, label = "arrow")
-                ListItem(onClick = { showAdvanced = !showAdvanced }, trailingContent = {
-                    Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, modifier = Modifier.rotate(arrow))
-                }) {
+                ListItem(
+                    onClick = { showAdvanced = !showAdvanced },
+                    colors = groupedRowColors(),
+                    trailingContent = {
+                        Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null, modifier = Modifier.rotate(arrow))
+                    },
+                ) {
                     Text(stringResource(R.string.advanced))
                 }
             }
@@ -142,17 +151,25 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
 
         if (look != PhotoLook.POLAROID) {
             section(R.string.sheet_osd)
-            switchItem(R.string.date_stamp, settings.dateStamp) { v -> change { it.copy(dateStamp = v) } }
-            if (look == PhotoLook.VHS) {
-                switchItem(R.string.time_stamp, settings.timeStamp, enabled = settings.dateStamp) { v ->
-                    change { it.copy(timeStamp = v) }
-                }
-                switchItem(R.string.play_osd, settings.playOsd) { v -> change { it.copy(playOsd = v) } }
-                switchItem(R.string.counter_osd, settings.counterOsd) { v -> change { it.copy(counterOsd = v) } }
-            }
-            switchItem(R.string.clock_24h, settings.clockStyle == ClockStyle.H24) { v ->
-                change { it.copy(clockStyle = if (v) ClockStyle.H24 else ClockStyle.H12) }
-            }
+            switchGroup(
+                buildList {
+                    add(SwitchRow(R.string.date_stamp, settings.dateStamp) { v -> change { it.copy(dateStamp = v) } })
+                    if (look == PhotoLook.VHS) {
+                        add(
+                            SwitchRow(R.string.time_stamp, settings.timeStamp, enabled = settings.dateStamp) { v ->
+                                change { it.copy(timeStamp = v) }
+                            },
+                        )
+                        add(SwitchRow(R.string.play_osd, settings.playOsd) { v -> change { it.copy(playOsd = v) } })
+                        add(SwitchRow(R.string.counter_osd, settings.counterOsd) { v -> change { it.copy(counterOsd = v) } })
+                    }
+                    add(
+                        SwitchRow(R.string.clock_24h, settings.clockStyle == ClockStyle.H24) { v ->
+                            change { it.copy(clockStyle = if (v) ClockStyle.H24 else ClockStyle.H12) }
+                        },
+                    )
+                },
+            )
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(stringResource(R.string.date_format), style = MaterialTheme.typography.titleSmallEmphasized)
@@ -161,6 +178,7 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
                         options = DateOrder.entries,
                         selected = settings.dateOrder,
                         onSelect = { order -> change { it.copy(dateOrder = order) } },
+                        colors = groupToggleColors(),
                         buttonSize = ToggleButtonSize.ExtraSmall,
                         fill = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -175,6 +193,7 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
                 }
                 ListItem(
                     onClick = { pickDate = true },
+                    colors = groupedRowColors(),
                     leadingContent = { Icon(painterResource(R.drawable.ic_calendar_month), contentDescription = null) },
                     supportingContent = { Text(clockText) },
                     trailingContent = if (settings.clockOffsetMillis != null) {
@@ -201,6 +220,7 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
                     options = WhiteBalance.entries,
                     selected = state.whiteBalance,
                     onSelect = actions.onWhiteBalance,
+                    colors = groupToggleColors(),
                     buttonSize = ToggleButtonSize.ExtraSmall,
                     fill = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -267,20 +287,24 @@ private fun LazyListScope.section(title: Int) {
     }
 }
 
-private fun LazyListScope.switchItem(
-    title: Int,
-    checked: Boolean,
-    enabled: Boolean = true,
-    onChange: (Boolean) -> Unit,
-) {
+private class SwitchRow(val title: Int, val checked: Boolean, val enabled: Boolean = true, val onChange: (Boolean) -> Unit)
+
+/** Switch rows drawn as one rounded M3E segmented group. */
+private fun LazyListScope.switchGroup(rows: List<SwitchRow>) {
     item {
-        ListItem(
-            checked = checked,
-            onCheckedChange = onChange,
-            enabled = enabled,
-            trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
-        ) {
-            Text(stringResource(title))
+        Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+            rows.forEachIndexed { index, row ->
+                SegmentedListItem(
+                    checked = row.checked,
+                    onCheckedChange = row.onChange,
+                    shapes = ListItemDefaults.segmentedShapes(index = index, count = rows.size),
+                    enabled = row.enabled,
+                    colors = groupedRowColors(),
+                    trailingContent = { Switch(checked = row.checked, onCheckedChange = null, enabled = row.enabled) },
+                ) {
+                    Text(stringResource(row.title))
+                }
+            }
         }
     }
 }
@@ -338,6 +362,7 @@ private fun ManualFocusControl(state: CameraUiState, actions: CameraActions) {
             checked = state.manualFocus != null,
             onCheckedChange = { on -> actions.onManualFocus(if (on) capabilities.minFocusDiopters / 4f else null) },
             enabled = capabilities.manualFocus,
+            colors = groupedRowColors(),
             supportingContent = if (!capabilities.manualFocus) {
                 { Text(stringResource(R.string.manual_focus_unavailable)) }
             } else {
