@@ -336,7 +336,7 @@ window.renderToDataUrl = async (opts) => {
   await ready;
   const image = await loadImage(opts.imageUrl);
   const result = await lab.render({ ...opts, image });
-  return result.toDataURL('image/png');
+  return result.toDataURL(opts.format ?? 'image/png', opts.quality);
 };
 
 ready.then(() => {
