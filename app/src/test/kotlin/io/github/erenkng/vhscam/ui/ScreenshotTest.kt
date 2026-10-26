@@ -18,16 +18,20 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.erenkng.vhscam.camera.CameraCapabilities
 import io.github.erenkng.vhscam.camera.ExposureInfo
 import io.github.erenkng.vhscam.camera.ZoomInfo
+import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.IntervalSetting
+import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.media.CapturedMedia
 import io.github.erenkng.vhscam.settings.AppSettings
+import io.github.erenkng.vhscam.ui.camera.BoothUi
 import io.github.erenkng.vhscam.ui.camera.CameraActions
 import io.github.erenkng.vhscam.ui.camera.CameraContent
 import io.github.erenkng.vhscam.ui.camera.CameraUiState
 import io.github.erenkng.vhscam.ui.camera.EffectsSheetContent
 import io.github.erenkng.vhscam.ui.camera.FocusStatus
 import io.github.erenkng.vhscam.ui.camera.FocusUi
+import io.github.erenkng.vhscam.ui.camera.IntervalUi
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
 import io.github.erenkng.vhscam.ui.gallery.GalleryContent
 import io.github.erenkng.vhscam.ui.permission.PermissionContent
@@ -73,6 +77,7 @@ class ScreenshotTest {
             state = CameraUiState(
                 settings = settings.copy(mode = CaptureMode.VIDEO, grid = true),
                 settingsLoaded = true,
+                signal = true,
                 zoom = ZoomInfo(ratio = 1f, min = 0.6f, max = 10f),
                 exposure = ExposureInfo(index = 2, min = -12, max = 12, step = 1f / 6f),
                 capabilities = CameraCapabilities(hasFlash = true, minFocusDiopters = 10f),
@@ -88,10 +93,64 @@ class ScreenshotTest {
     fun cameraPhotoFilm() = capture("03_camera_photo_film") {
         CameraContent(
             state = CameraUiState(
-                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = PhotoLook.FILM),
+                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.FILM),
                 settingsLoaded = true,
+                signal = true,
                 zoom = ZoomInfo(ratio = 2f, min = 1f, max = 8f),
                 capabilities = CameraCapabilities(hasFlash = true),
+            ),
+            actions = CameraActions(),
+            viewfinder = { FakeScene(it) },
+        )
+    }
+
+    @Test
+    fun cameraEffects() = capture("07_camera_vhs_effects") {
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(
+                    mode = CaptureMode.VIDEO,
+                    effect = CamcorderEffect.NIGHT_VISION,
+                    fade = true,
+                    interval = IntervalSetting.S10,
+                ),
+                settingsLoaded = true,
+                signal = true,
+                zoom = ZoomInfo(ratio = 5f, min = 1f, max = 5f),
+                digitalZoom = 3f,
+                capabilities = CameraCapabilities(hasFlash = true, dualCamera = true),
+                recording = RecordingUi.Active(elapsedMillis = 14_000, paused = true),
+                interval = IntervalUi(nextInSeconds = 7),
+            ),
+            actions = CameraActions(),
+            effectRowOpen = true,
+            viewfinder = { FakeScene(it) },
+        )
+    }
+
+    @Test
+    fun cameraBooth() = capture("08_camera_booth") {
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.GAMEBOY, booth = true),
+                settingsLoaded = true,
+                signal = true,
+                capabilities = CameraCapabilities(hasFlash = true),
+                booth = BoothUi(shot = 2, total = 4),
+                countdown = 2,
+            ),
+            actions = CameraActions(),
+            viewfinder = { FakeScene(it) },
+        )
+    }
+
+    @Test
+    fun cameraNoSignal() = capture("09_camera_no_signal") {
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(mode = CaptureMode.VIDEO, videoLook = Look.CCTV),
+                settingsLoaded = true,
+                signal = false,
             ),
             actions = CameraActions(),
             viewfinder = { FakeScene(it) },

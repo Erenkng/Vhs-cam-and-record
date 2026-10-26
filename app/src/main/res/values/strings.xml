@@ -11,7 +11,7 @@
 
     <!-- Modes and looks -->
     <string name="mode_photo">Photo</string>
-    <string name="mode_video">VHS</string>
+    <string name="mode_video">Video</string>
     <string name="look_vhs">VHS</string>
     <string name="look_ccd">Digicam</string>
     <string name="look_film">35mm</string>
@@ -37,8 +37,6 @@
     <string name="timer_off">Self-timer off</string>
     <string name="timer_3">Self-timer 3 seconds</string>
     <string name="timer_10">Self-timer 10 seconds</string>
-    <string name="grid_on">Grid on</string>
-    <string name="grid_off">Grid off</string>
     <string name="aspect_4_3">4:3</string>
     <string name="aspect_16_9">16:9</string>
     <string name="aspect_ratio">Aspect ratio</string>
@@ -137,4 +135,67 @@
     <string name="version">Version</string>
     <string name="licenses">Open-source licences</string>
     <string name="licenses_help">Fonts and icons used in VHS Cam</string>
+
+    <!-- v1 -->
+    <string name="mode_dual">Dual</string>
+    <string name="look_gameboy">8-bit</string>
+    <string name="look_webcam">Webcam</string>
+    <string name="look_cctv">CCTV</string>
+    <string name="effects_button">Camcorder effects</string>
+    <string name="effect_none">Off</string>
+    <string name="effect_night">Night vision</string>
+    <string name="effect_sepia">Sepia</string>
+    <string name="effect_mono">B&amp;W</string>
+    <string name="effect_mosaic">Mosaic</string>
+    <string name="effect_strobe">Strobe</string>
+    <string name="effect_trail">Trail</string>
+    <string name="fade_on">Fader on</string>
+    <string name="fade_off">Fader off</string>
+    <string name="fade">Fader</string>
+    <string name="fade_help">Fades in when recording starts or resumes and out before it stops or pauses.</string>
+    <string name="fade_color">Fade to</string>
+    <string name="fade_black">Black</string>
+    <string name="fade_white">White</string>
+    <string name="blue_intro">Blue screen at the start</string>
+    <string name="blue_intro_help">Tapes start with a second of the VCR\'s blue screen.</string>
+    <string name="interval_rec">Interval REC</string>
+    <string name="interval_help">Records one second at a time, every:</string>
+    <string name="interval_off">Off</string>
+    <string name="interval_10s">10 s</string>
+    <string name="interval_30s">30 s</string>
+    <string name="interval_1m">1 min</string>
+    <string name="interval_badge">INT REC</string>
+    <string name="interval_next">next in %1$d s</string>
+    <string name="booth_on">Photobooth on</string>
+    <string name="booth_off">Photobooth off</string>
+    <string name="booth_progress">Shot %1$d of %2$d</string>
+    <string name="no_signal">NO SIGNAL</string>
+    <string name="dzoom">D.ZOOM</string>
+    <string name="sheet_recording">Recording</string>
+    <string name="sheet_viewfinder">Viewfinder</string>
+    <string name="grid">Grid</string>
+    <string name="msg_dual_unavailable">Dual recording isn\'t available on this phone</string>
+    <string name="msg_gif_saved">GIF saved to Tapes</string>
+    <string name="msg_gif_failed">Could not make the GIF</string>
+    <string name="make_gif">Make a GIF</string>
+    <string name="gif_making">Making GIF…</string>
+    <string name="restyle">Change look</string>
+    <string name="restyle_save">Save as new photo</string>
+    <string name="restyle_saved">Saved as a new photo</string>
+    <string name="restyle_failed">Could not change the look</string>
+    <string name="restyle_no_original">Only photos taken with this version keep their original, so this one can\'t change its look.</string>
+    <string name="keep_originals">Keep originals</string>
+    <string name="keep_originals_help">Lets you change a photo\'s look later. Uses %1$s.</string>
+    <string name="clear_originals">Delete originals</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Let\'s roll</string>
+    <string name="onboarding_1_title">Tape loaded</string>
+    <string name="onboarding_1_body">VHS Cam turns your phone into a 90s camcorder: a modern camera with footage straight from the past.</string>
+    <string name="onboarding_2_title">A camera for every era</string>
+    <string name="onboarding_2_body">VHS, an early-2000s digicam, 35mm film, instant film, 8-bit, a 2005 webcam and CCTV.</string>
+    <string name="onboarding_3_title">Camcorder buttons</string>
+    <string name="onboarding_3_body">Fader, night vision, sepia and mosaic, digital zoom, interval REC, dual recording and the VCR blue screen.</string>
+    <string name="onboarding_4_title">Ready to share</string>
+    <string name="onboarding_4_body">Photobooth strips, retro GIFs and changing a photo\'s look later. It all ends up in your Tapes.</string>
 </resources>

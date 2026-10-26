@@ -4,8 +4,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -29,9 +33,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,11 +68,13 @@ import io.github.erenkng.vhscam.camera.DeviceOrientation
 import io.github.erenkng.vhscam.camera.LookFactory
 import io.github.erenkng.vhscam.camera.ZoomInfo
 import io.github.erenkng.vhscam.core.look.AspectSetting
-import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.ui.components.AppSlider
 import io.github.erenkng.vhscam.ui.components.FocusIndicator
 import io.github.erenkng.vhscam.ui.components.GridOverlay
 import io.github.erenkng.vhscam.ui.components.RecordingBadge
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -84,7 +94,7 @@ fun ViewfinderPanel(
 ) {
     val settings = state.settings
     val motion = MaterialTheme.motionScheme
-    val boxAspect = if (settings.mode == CaptureMode.VIDEO && settings.aspect == AspectSetting.RATIO_16_9) 9f / 16f else 3f / 4f
+    val boxAspect = if (state.isFilming && settings.aspect == AspectSetting.RATIO_16_9) 9f / 16f else 3f / 4f
     // Photo looks crop further (3:2 film, square instant film). The screen is portrait, so the
     // crop seen here is the portrait version of the look's aspect, whichever way the phone is held.
     val cropAspect = LookFactory.lookAspect(settings)?.let { 1f / it } ?: boxAspect
@@ -92,12 +102,21 @@ fun ViewfinderPanel(
     val animatedCrop by animateFloatAsState(cropAspect, motion.defaultSpatialSpec(), label = "crop")
     val view = LocalView.current
     val haptics = LocalHapticFeedback.current
-    val currentZoom by rememberUpdatedState(state.zoom)
+    val currentZoom by rememberUpdatedState(state.effectiveZoom)
     val iconRotation by animateFloatAsState(
         DeviceOrientation.iconRotationDegrees(state.rotation),
         motion.defaultSpatialSpec(),
         label = "rotation",
     )
+    // The camcorder's zoom bar shows while zooming, and stays while the digital zoom is on.
+    var zooming by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentZoom }.drop(1).collectLatest {
+            zooming = true
+            delay(1_500)
+            zooming = false
+        }
+    }
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val widthLimited = maxWidth / maxHeight < animatedBox
@@ -122,11 +141,20 @@ fun ViewfinderPanel(
                 }
                 .pointerInput(Unit) {
                     detectTransformGestures { _, _, zoom, _ ->
-                        if (zoom != 1f) actions.onZoom(currentZoom.ratio * zoom)
+                        if (zoom != 1f) actions.onZoom(currentZoom * zoom)
                     }
                 },
         ) {
             viewfinder(Modifier.fillMaxSize())
+
+            AnimatedVisibility(
+                visible = !state.signal,
+                enter = fadeIn(tween(120)),
+                exit = fadeOut(tween(280)),
+                modifier = Modifier.matchParentSize(),
+            ) {
+                NoSignalScreen(Modifier.fillMaxSize())
+            }
 
             ShutterBlink(state.shutterCount)
 
@@ -168,18 +196,57 @@ fun ViewfinderPanel(
                 ExposureControl(state, actions)
             }
 
-            val active = state.recording as? RecordingUi.Active
-            if (active != null) {
-                RecordingBadge(
-                    elapsedMillis = active.elapsedMillis,
-                    paused = active.paused,
-                    pausedLabel = stringResource(R.string.paused),
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp).rotate(iconRotation),
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp).rotate(iconRotation),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val active = state.recording as? RecordingUi.Active
+                if (active != null) {
+                    RecordingBadge(
+                        elapsedMillis = active.elapsedMillis,
+                        // Interval REC pauses between snippets by itself; that isn't a pause to report.
+                        paused = active.paused && state.interval == null,
+                        pausedLabel = stringResource(R.string.paused),
+                    )
+                }
+                AnimatedVisibility(
+                    visible = state.interval != null,
+                    enter = fadeIn() + expandVertically(motion.fastSpatialSpec()),
+                    exit = fadeOut() + shrinkVertically(motion.fastSpatialSpec()),
+                ) {
+                    IntervalBadge(nextInSeconds = state.interval?.nextInSeconds)
+                }
+                AnimatedVisibility(
+                    visible = state.booth != null,
+                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                ) {
+                    var lastBooth by remember { mutableStateOf(state.booth) }
+                    SideEffect { if (state.booth != null) lastBooth = state.booth }
+                    (state.booth ?: lastBooth)?.let { BoothProgress(it) }
+                }
+            }
+
+            // In the middle, so it reads the right way up however the phone is held.
+            AnimatedVisibility(
+                visible = state.digitalZoomAvailable && (zooming || state.digitalZoom > 1f),
+                enter = fadeIn(tween(90)),
+                exit = fadeOut(tween(400)),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                CamcorderZoomBar(
+                    zoom = state.effectiveZoom,
+                    min = state.zoom.min,
+                    lensMax = state.zoom.max,
+                    max = state.zoom.max * CameraViewModel.DIGITAL_ZOOM_MAX,
+                    modifier = Modifier.rotate(iconRotation),
                 )
             }
 
             ZoomPresets(
                 zoom = state.zoom,
+                ratio = state.effectiveZoom,
                 rotation = iconRotation,
                 onZoom = actions.onZoom,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
@@ -212,9 +279,12 @@ private fun ExposureControl(state: CameraUiState, actions: CameraActions) {
     }
 }
 
-/** 0.5× / 1× / 2× / 5× buttons, limited to what the camera can do. */
+/**
+ * 0.5× / 1× / 2× / 5× buttons, limited to what the lens can do. [ratio] is the zoom the user
+ * sees, digital zoom included; the active button shows it when it is between presets.
+ */
 @Composable
-private fun ZoomPresets(zoom: ZoomInfo, rotation: Float, onZoom: (Float) -> Unit, modifier: Modifier = Modifier) {
+private fun ZoomPresets(zoom: ZoomInfo, ratio: Float, rotation: Float, onZoom: (Float) -> Unit, modifier: Modifier = Modifier) {
     val presets = remember(zoom.min, zoom.max) {
         buildList {
             if (zoom.min < 0.95f) add(zoom.min)
@@ -226,7 +296,7 @@ private fun ZoomPresets(zoom: ZoomInfo, rotation: Float, onZoom: (Float) -> Unit
     if (presets.size < 2) return
     val haptics = LocalHapticFeedback.current
     // The active preset is the largest one not above the current zoom.
-    val active = presets.lastOrNull { it <= zoom.ratio + 0.01f } ?: presets.first()
+    val active = presets.lastOrNull { it <= ratio + 0.01f } ?: presets.first()
     Surface(
         modifier = modifier,
         shape = CircleShape,
@@ -239,7 +309,7 @@ private fun ZoomPresets(zoom: ZoomInfo, rotation: Float, onZoom: (Float) -> Unit
         ) {
             presets.forEach { preset ->
                 val selected = preset == active
-                val label = if (selected && abs(zoom.ratio - preset) > 0.05f) zoom.ratio else preset
+                val label = if (selected && abs(ratio - preset) > 0.05f) ratio else preset
                 FilledTonalIconToggleButton(
                     checked = selected,
                     onCheckedChange = {

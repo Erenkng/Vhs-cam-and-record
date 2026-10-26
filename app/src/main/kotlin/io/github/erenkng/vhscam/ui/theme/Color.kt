@@ -117,4 +117,7 @@ object CameraColors {
     val Scrim = Color(0x99000000)
     val ControlSurface = Color(0x66000000)
     val Amber = Color(0xFFFFB238)
+
+    /** The VCR's blue screen; matches VCR_BLUE in present.frag. */
+    val VcrBlue = Color(0xFF0D1FB8)
 }

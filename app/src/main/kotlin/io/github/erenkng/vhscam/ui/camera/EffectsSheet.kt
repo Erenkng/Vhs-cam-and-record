@@ -44,7 +44,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.camera.LookFactory
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.FadeColor
+import io.github.erenkng.vhscam.core.look.IntervalSetting
+import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.look.VhsAdjustments
 import io.github.erenkng.vhscam.core.osd.CamcorderClock
@@ -63,7 +65,10 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-/** Bottom sheet with everything about the look: tape, intensity, OSD, camcorder clock, pro controls. */
+/**
+ * Bottom sheet with everything about the look and the recording: tape, intensity, fader,
+ * interval REC, OSD, camcorder clock, grid and pro controls.
+ */
 @Composable
 fun EffectsSheet(state: CameraUiState, actions: CameraActions, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
@@ -87,7 +92,7 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (look == PhotoLook.VHS) {
+        if (look == Look.VHS) {
             section(R.string.sheet_tape)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -132,29 +137,55 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
         } else {
             section(R.string.sheet_look)
             item {
-                val value = when (look) {
-                    PhotoLook.CCD -> settings.ccdIntensity
-                    PhotoLook.FILM -> settings.filmIntensity
-                    else -> settings.polaroidIntensity
-                }
-                LabeledSlider(R.string.intensity, value, 0f..1f) { v ->
-                    change {
-                        when (look) {
-                            PhotoLook.CCD -> it.copy(ccdIntensity = v)
-                            PhotoLook.FILM -> it.copy(filmIntensity = v)
-                            else -> it.copy(polaroidIntensity = v)
-                        }
-                    }
+                LabeledSlider(R.string.intensity, LookFactory.intensity(settings, look), 0f..1f) { v ->
+                    change { LookFactory.withIntensity(it, look, v) }
                 }
             }
         }
 
-        if (look != PhotoLook.POLAROID) {
+        if (state.isFilming) {
+            section(R.string.sheet_recording)
+            switchGroup(
+                buildList {
+                    add(SwitchRow(R.string.fade, settings.fade, help = R.string.fade_help) { v -> change { it.copy(fade = v) } })
+                    if (look == Look.VHS) {
+                        add(
+                            SwitchRow(R.string.blue_intro, settings.blueIntro, help = R.string.blue_intro_help) { v ->
+                                change { it.copy(blueIntro = v) }
+                            },
+                        )
+                    }
+                },
+            )
+            item {
+                AnimatedVisibility(visible = settings.fade) {
+                    ChoiceRow(
+                        title = R.string.fade_color,
+                        options = FadeColor.entries,
+                        selected = settings.fadeColor,
+                        onSelect = { color -> change { it.copy(fadeColor = color) } },
+                    ) { color -> Text(stringResource(if (color == FadeColor.WHITE) R.string.fade_white else R.string.fade_black)) }
+                }
+            }
+            item {
+                // The interval loop is set up when recording starts.
+                ChoiceRow(
+                    title = R.string.interval_rec,
+                    help = R.string.interval_help,
+                    options = IntervalSetting.entries,
+                    selected = settings.interval,
+                    onSelect = { interval -> change { it.copy(interval = interval) } },
+                    enabled = !state.isRecording,
+                ) { interval -> Text(stringResource(interval.label()), maxLines = 1) }
+            }
+        }
+
+        if (look in OSD_LOOKS) {
             section(R.string.sheet_osd)
             switchGroup(
                 buildList {
                     add(SwitchRow(R.string.date_stamp, settings.dateStamp) { v -> change { it.copy(dateStamp = v) } })
-                    if (look == PhotoLook.VHS) {
+                    if (look == Look.VHS) {
                         add(
                             SwitchRow(R.string.time_stamp, settings.timeStamp, enabled = settings.dateStamp) { v ->
                                 change { it.copy(timeStamp = v) }
@@ -210,6 +241,9 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
                 }
             }
         }
+
+        section(R.string.sheet_viewfinder)
+        switchGroup(listOf(SwitchRow(R.string.grid, settings.grid) { v -> change { it.copy(grid = v) } }))
 
         section(R.string.sheet_pro)
         item { ManualFocusControl(state, actions) }
@@ -287,7 +321,16 @@ private fun LazyListScope.section(title: Int) {
     }
 }
 
-private class SwitchRow(val title: Int, val checked: Boolean, val enabled: Boolean = true, val onChange: (Boolean) -> Unit)
+/** Looks that print a date or time into the picture. */
+private val OSD_LOOKS = setOf(Look.VHS, Look.CCD, Look.FILM, Look.CCTV)
+
+private class SwitchRow(
+    val title: Int,
+    val checked: Boolean,
+    val enabled: Boolean = true,
+    val help: Int? = null,
+    val onChange: (Boolean) -> Unit,
+)
 
 /** Switch rows drawn as one rounded M3E segmented group. */
 private fun LazyListScope.switchGroup(rows: List<SwitchRow>) {
@@ -300,6 +343,11 @@ private fun LazyListScope.switchGroup(rows: List<SwitchRow>) {
                     shapes = ListItemDefaults.segmentedShapes(index = index, count = rows.size),
                     enabled = row.enabled,
                     colors = groupedRowColors(),
+                    supportingContent = if (row.help != null) {
+                        { Text(stringResource(row.help)) }
+                    } else {
+                        null
+                    },
                     trailingContent = { Switch(checked = row.checked, onCheckedChange = null, enabled = row.enabled) },
                 ) {
                     Text(stringResource(row.title))
@@ -307,6 +355,47 @@ private fun LazyListScope.switchGroup(rows: List<SwitchRow>) {
             }
         }
     }
+}
+
+/** A titled single-choice button group. */
+@Composable
+private fun <T> ChoiceRow(
+    title: Int,
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    help: Int? = null,
+    enabled: Boolean = true,
+    label: @Composable (T) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(title), style = MaterialTheme.typography.titleSmallEmphasized)
+        if (help != null) {
+            Text(
+                stringResource(help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        ConnectedToggleGroup(
+            options = options,
+            selected = selected,
+            onSelect = onSelect,
+            colors = groupToggleColors(),
+            buttonSize = ToggleButtonSize.ExtraSmall,
+            enabled = enabled,
+            fill = true,
+            modifier = Modifier.fillMaxWidth(),
+            label = label,
+        )
+    }
+}
+
+private fun IntervalSetting.label(): Int = when (this) {
+    IntervalSetting.OFF -> R.string.interval_off
+    IntervalSetting.S10 -> R.string.interval_10s
+    IntervalSetting.S30 -> R.string.interval_30s
+    IntervalSetting.M1 -> R.string.interval_1m
 }
 
 @Composable
