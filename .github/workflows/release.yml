@@ -1,9 +1,15 @@
 name: Release
 
-# Pushing a tag such as v0.5 builds the signed APK and publishes it as a GitHub release.
+# Pushing a tag such as v0.5, or running this workflow by hand with that tag, builds the signed
+# APK and publishes it as a GitHub release (a manual run creates the tag on the chosen branch).
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release, matching versionName (e.g. v0.5)
+        required: true
 
 permissions:
   contents: write
@@ -21,6 +27,20 @@ jobs:
           java-version: 21
 
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check the tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::Tags look like v0.5 or v1.0.2, not '$TAG'."
+            exit 1
+          fi
+          if ! grep -q "versionName = \"${TAG#v}\"" app/build.gradle.kts; then
+            echo "::error::$TAG does not match versionName in app/build.gradle.kts."
+            exit 1
+          fi
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
 
       # The permanent key comes from the SIGNING_KEYSTORE_BASE64 and SIGNING_PASSWORD secrets.
       # Without them the release is signed with a one-time key that only exists in this job,
@@ -64,7 +84,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="$GITHUB_REF_NAME"
+          tag="$RELEASE_TAG"
           apk="VHS-Cam-$tag.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
@@ -79,4 +99,9 @@ jobs:
           else
             printf '\n> APK, projenin kalıcı sürüm anahtarıyla imzalıdır; sonraki sürümler bunun üzerine güncelleme olarak kurulur.\n' >> "$notes"
           fi
-          gh release create "$tag" "$apk" "$apk.sha256" --title "VHS Cam $tag" --notes-file "$notes"
+          # A manual run creates the tag at the commit it built; a tag push already has one.
+          target=()
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            target=(--target "$GITHUB_SHA")
+          fi
+          gh release create "$tag" "$apk" "$apk.sha256" "${target[@]}" --title "VHS Cam $tag" --notes-file "$notes"

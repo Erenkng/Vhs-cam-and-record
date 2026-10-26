@@ -51,7 +51,7 @@ Gereksinimler: Android 10 (API 29) veya üstü, OpenGL ES 3.0 destekleyen bir te
 ### Yeni sürüm çıkarmak
 
 1. `app/build.gradle.kts` içinde `versionCode` ve `versionName` değerlerini artırın; isterseniz `docs/release-notes/vX.Y.md` dosyasına sürüm notlarını yazın.
-2. `vX.Y` biçiminde bir etiket gönderin (`git tag v0.6 && git push origin v0.6`).
+2. `vX.Y` biçiminde bir etiket gönderin (`git tag v0.6 && git push origin v0.6`) ya da GitHub'da **Actions → Release → Run workflow** ile etiketi yazıp çalıştırın; telefondan da yapılabilir.
 3. **Release** iş akışı testleri çalıştırır, APK'yı sürüm anahtarıyla imzalar ve GitHub'da sürümü yayınlar.
 
 İmza anahtarı depoda değil, iki depo sırrında (Settings → Secrets and variables → Actions) durur: `SIGNING_KEYSTORE_BASE64` (PKCS#12 anahtar deposunun base64 hâli, takma ad `vhscam`) ve `SIGNING_PASSWORD`. Bu sırlar yoksa iş akışı sürümü yalnızca o çalışmada var olan tek seferlik bir anahtarla imzalar: APK yine kurulur, ama sonraki sürüm onun üzerine güncelleme olarak kurulamaz. Kalıcı anahtarı kullanıyorsanız bir yedeğini güvenli bir yerde saklayın: sonraki sürümler aynı anahtarla imzalanmazsa Android onları eski sürümün üzerine kurmaz.
