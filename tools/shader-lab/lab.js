@@ -2,10 +2,13 @@
 // The pass graph mirrors app/src/main/kotlin/.../gl/LookRenderer.kt.
 
 import * as Presets from './presets.js';
-import { drawCamcorderStamp, drawDigitalStamp, drawFilmStamp, drawVcrOverlay } from './osd.js';
+import { drawCamcorderStamp, drawCctvOverlay, drawDigitalStamp, drawFilmStamp, drawVcrOverlay } from './osd.js';
 
 const SHADERS = '../../app/src/main/assets/shaders/';
-const LOOK_ASPECT = { VHS: 4 / 3, CCD: 4 / 3, FILM: 3 / 2, POLAROID: 1 };
+const LOOK_ASPECT = { VHS: 4 / 3, CCD: 4 / 3, FILM: 3 / 2, POLAROID: 1, GAMEBOY: 8 / 7, WEBCAM: 4 / 3, CCTV: 4 / 3 };
+// Height of the working frame per look (mirrors LookSpec.workLines in the app).
+const WORK_LINES = { VHS: 480, GAMEBOY: 112, WEBCAM: 240, CCTV: 288 };
+const EFFECTS = { NONE: 0, NIGHT: 1, SEPIA: 2, MONO: 3 };
 const UINT_UNIFORMS = new Set(['uFrame']);
 
 async function fetchText(path) {
@@ -44,6 +47,10 @@ export class LookLab {
       glow: await load('glow.frag'),
       film: await load('film.frag'),
       polaroid: await load('polaroid.frag'),
+      gameboy: await load('gameboy.frag'),
+      webcam: await load('webcam.frag'),
+      cctv: await load('cctv.frag'),
+      trail: await load('trail.frag'),
     };
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -147,7 +154,7 @@ export class LookLab {
    * Renders [image] with a look. Returns the canvas with the result (Polaroid adds its frame,
    * CCD bakes in JPEG blocking just like the app's photo path).
    */
-  async render({ image, look, speed = 'SP', time = 3.0, frame = 90, outWidth = 960, seed = 0.37, osd = {}, overrides = {} }) {
+  async render({ image, look, speed = 'SP', time = 3.0, frame = 90, outWidth = 960, seed = 0.37, osd = {}, overrides = {}, effect = 'NONE', mosaic = 0 }) {
     const gl = this.gl;
     const aspect = LOOK_ASPECT[look];
     const imgAspect = image.width / image.height;
@@ -156,7 +163,7 @@ export class LookLab {
     if (imgAspect > aspect) sx = aspect / imgAspect; else sy = imgAspect / aspect;
     const crop = affine(sx, 0, 0, sy, (1 - sx) / 2, (1 - sy) / 2);
 
-    const H = look === 'VHS' ? 480 : 1200;
+    const H = WORK_LINES[look] ?? 1200;
     const W = Math.round(H * aspect);
     const outW = outWidth;
     const outH = Math.round(outWidth / aspect);
@@ -172,6 +179,7 @@ export class LookLab {
       if (look === 'VHS') drawVcrOverlay(ctx, w, h, { ...osd, speed });
       // The digital stamp is written after in-camera processing, so it stays crisp.
       if (look === 'CCD' && osd.ccdText) drawDigitalStamp(ctx, w, h, osd.ccdText);
+      if (look === 'CCTV') drawCctvOverlay(ctx, w, h, { stamp: osd.cctvText });
     });
 
     const a = this.target(W, H);
@@ -181,6 +189,10 @@ export class LookLab {
       uPixelY: [0, sy / H],
       uOsdEnabled: 1,
       uOsdMirror: 0,
+      uWorkSize: [W, H],
+      uMosaic: mosaic,
+      uEffect: EFFECTS[effect],
+      uNightGain: 1.5,
     }, { uInput: input, uOsd: burned });
 
     const out = this.target(W, H);
@@ -200,6 +212,29 @@ export class LookLab {
         uContrast: p.contrast, uBlackLift: p.blackLift, uTint: p.tint, uGlitch: 0,
       }, { uSrc: a.tex, uChroma: chroma.tex });
       vignetteAmount = p.vignette;
+      scanlines = p.scanlines;
+    } else if (look === 'GAMEBOY') {
+      const p = { ...Presets.GAMEBOY, ...overrides };
+      this.draw(this.programs.gameboy, out, {
+        uSrcSize: [W, H], uContrast: p.contrast, uBrightness: p.brightness, uEdge: p.edge,
+        uDither: p.dither, uShade0: p.shades[0], uShade1: p.shades[1], uShade2: p.shades[2],
+        uShade3: p.shades[3],
+      }, { uSrc: a.tex });
+      gl.bindTexture(gl.TEXTURE_2D, out.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    } else if (look === 'WEBCAM') {
+      const p = { ...Presets.WEBCAM, ...overrides };
+      this.draw(this.programs.webcam, out, {
+        uSrcSize: [W, H], uFrame: frame, uExposure: p.exposure, uContrast: p.contrast,
+        uSaturation: p.saturation, uTint: p.tint, uNoise: p.noise, uBlockiness: p.blockiness,
+        uVignette: p.vignette,
+      }, { uSrc: a.tex });
+    } else if (look === 'CCTV') {
+      const p = { ...Presets.CCTV, ...overrides };
+      this.draw(this.programs.cctv, out, {
+        uSrcSize: [W, H], uFrame: frame, uTime: time, uContrast: p.contrast, uNoise: p.noise,
+        uBarrel: p.barrel, uHum: p.hum, uTint: p.tint, uVignette: p.vignette,
+      }, { uSrc: a.tex });
       scanlines = p.scanlines;
     } else if (look === 'CCD') {
       const p = Presets.CCD;
@@ -233,12 +268,14 @@ export class LookLab {
     }
 
     this.draw(this.programs.present, null, {
-      uSrcSize: [W, H], uOverlayEnabled: look === 'VHS' || look === 'CCD' ? 1 : 0, uOverlayMirror: 0,
+      uSrcSize: [W, H], uOverlayEnabled: ['VHS', 'CCD', 'CCTV'].includes(look) ? 1 : 0, uOverlayMirror: 0,
       uVignette: vignetteAmount, uScanlines: scanlines, uPeaking: 0, uPeakColor: [1, 0.2, 0.6],
+      uBlueScreen: 0, uFade: 0, uFadeColor: [0, 0, 0],
     }, { uSrc: out.tex, uOverlay: overlay, uPeakSrc: a.tex });
 
     if (look === 'CCD') return this.jpegRoundTrip(Presets.CCD.jpegQuality / 100);
     if (look === 'POLAROID') return this.polaroidFrame();
+    if (look === 'GAMEBOY') return this.gameboyFrame(Presets.GAMEBOY.shades);
     return this.canvas;
   }
 
@@ -249,6 +286,23 @@ export class LookLab {
     c.width = bitmap.width;
     c.height = bitmap.height;
     c.getContext('2d').drawImage(bitmap, 0, 0);
+    return c;
+  }
+
+  gameboyFrame(shades) {
+    // The camera's plain frame: a 16 px light border around the 128 x 112 picture (160 x 144).
+    const s = this.canvas.width / 128;
+    const c = document.createElement('canvas');
+    c.width = Math.round(160 * s);
+    c.height = Math.round(144 * s);
+    const ctx = c.getContext('2d');
+    const css = (rgb) => `rgb(${rgb.map((v) => Math.round(v * 255)).join(',')})`;
+    ctx.fillStyle = css(shades[3]);
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = css(shades[0]);
+    ctx.fillRect(Math.round(15 * s), Math.round(15 * s), Math.round(130 * s), Math.round(114 * s));
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.canvas, Math.round(16 * s), Math.round(16 * s));
     return c;
   }
 
