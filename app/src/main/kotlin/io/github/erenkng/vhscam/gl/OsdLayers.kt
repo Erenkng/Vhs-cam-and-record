@@ -5,7 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.opengl.GLES30
 import android.opengl.GLUtils
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.Look
 
 /**
  * The two OSD textures of a frame: text the camera burns into the picture (degraded with it)
@@ -27,7 +27,7 @@ class OsdLayers(private val painter: OsdPainter) {
     private var overlayKey: Any? = null
 
     fun update(
-        look: PhotoLook,
+        look: Look,
         content: OsdContent,
         burnedWidth: Int,
         burnedHeight: Int,
@@ -35,8 +35,8 @@ class OsdLayers(private val painter: OsdPainter) {
         overlayHeight: Int,
     ) {
         val burnedText: List<String?> = when (look) {
-            PhotoLook.VHS -> listOf(content.camcorderTime, content.camcorderDate)
-            PhotoLook.FILM -> listOf(content.filmStamp)
+            Look.VHS -> listOf(content.camcorderTime, content.camcorderDate)
+            Look.FILM -> listOf(content.filmStamp)
             else -> emptyList()
         }
         val newBurnedKey = listOf(look, burnedText, burnedWidth, burnedHeight)
@@ -46,8 +46,8 @@ class OsdLayers(private val painter: OsdPainter) {
             if (hasBurned) {
                 burnedTexture = upload(burnedTexture, burnedWidth, burnedHeight) { canvas, w, h ->
                     when (look) {
-                        PhotoLook.VHS -> painter.camcorderStamp(canvas, w, h, content.camcorderTime, content.camcorderDate)
-                        PhotoLook.FILM -> content.filmStamp?.let { painter.filmStamp(canvas, w, h, it) }
+                        Look.VHS -> painter.camcorderStamp(canvas, w, h, content.camcorderTime, content.camcorderDate)
+                        Look.FILM -> content.filmStamp?.let { painter.filmStamp(canvas, w, h, it) }
                         else -> Unit
                     }
                 }
@@ -55,23 +55,26 @@ class OsdLayers(private val painter: OsdPainter) {
         }
 
         val overlayText: List<Any?> = when (look) {
-            PhotoLook.VHS -> listOf(content.playIndicator, content.speedLabel, content.counter)
-            PhotoLook.CCD -> listOf(content.digitalStamp)
+            Look.VHS -> listOf(content.playIndicator, content.speedLabel, content.counter)
+            Look.CCD -> listOf(content.digitalStamp)
+            Look.CCTV -> listOf(content.cctvStamp)
             else -> emptyList()
         }
         val newOverlayKey = listOf(look, overlayText, overlayWidth, overlayHeight)
         if (newOverlayKey != overlayKey) {
             overlayKey = newOverlayKey
             hasOverlay = when (look) {
-                PhotoLook.VHS -> content.playIndicator || content.counter != null
-                PhotoLook.CCD -> content.digitalStamp != null
+                Look.VHS -> content.playIndicator || content.counter != null
+                Look.CCD -> content.digitalStamp != null
+                Look.CCTV -> true
                 else -> false
             }
             if (hasOverlay) {
                 overlayTexture = upload(overlayTexture, overlayWidth, overlayHeight) { canvas, w, h ->
                     when (look) {
-                        PhotoLook.VHS -> painter.vcrOverlay(canvas, w, h, content.playIndicator, content.speedLabel, content.counter)
-                        PhotoLook.CCD -> content.digitalStamp?.let { painter.digitalStamp(canvas, w, h, it) }
+                        Look.VHS -> painter.vcrOverlay(canvas, w, h, content.playIndicator, content.speedLabel, content.counter)
+                        Look.CCD -> content.digitalStamp?.let { painter.digitalStamp(canvas, w, h, it) }
+                        Look.CCTV -> painter.cctvOverlay(canvas, w, h, CCTV_CAMERA, content.cctvStamp)
                         else -> Unit
                     }
                 }
@@ -103,5 +106,9 @@ class OsdLayers(private val painter: OsdPainter) {
         overlayTexture = 0
         burnedKey = null
         overlayKey = null
+    }
+
+    private companion object {
+        const val CCTV_CAMERA = "CAM 01"
     }
 }

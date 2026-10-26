@@ -79,6 +79,18 @@ class OsdPainter(context: Context) {
         }
     }
 
+    /** Security camera overlay: camera name top-left, date and time top-right. */
+    fun cctvOverlay(canvas: Canvas, w: Int, h: Int, camera: String, stamp: String?) {
+        val size = h * 0.06f
+        val y = h * 0.1f
+        outlinedText(canvas, camera, w * 0.05f, y, size, Color.WHITE)
+        if (stamp != null) {
+            fill.textSize = size
+            val tw = fill.measureText(stamp)
+            outlinedText(canvas, stamp, w * 0.95f - tw, y, size, Color.WHITE)
+        }
+    }
+
     /** Digital camera imprint, amber, bottom-right. */
     fun digitalStamp(canvas: Canvas, w: Int, h: Int, text: String) {
         val size = h * 0.055f

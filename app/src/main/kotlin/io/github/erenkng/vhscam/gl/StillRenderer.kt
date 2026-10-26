@@ -31,7 +31,6 @@ class StillRenderer(private val context: Context) {
      * @param source upright photo.
      * @param mirror flip horizontally (selfie mirroring).
      * @param lookAspect landscape aspect of the look's crop, or null to keep the photo's.
-     * @param workLines working resolution: lines of the short (VHS: vertical) edge.
      * @param outputLongEdge long edge of the returned bitmap.
      */
     suspend fun render(
@@ -59,8 +58,10 @@ class StillRenderer(private val context: Context) {
             aspect = target
         }
 
-        val (workWidth, workHeight) = if (spec is LookSpec.Vhs) {
-            max(4, (VhsSurfaceProcessor.VHS_LINES * aspect).roundToInt()) to VhsSurfaceProcessor.VHS_LINES
+        val lines = spec.kind.workLines
+        val (workWidth, workHeight) = if (lines != null) {
+            // Low-resolution looks render at their own size and are scaled up by present.
+            max(4, (lines * aspect).roundToInt()) to lines
         } else if (aspect >= 1f) {
             outputLongEdge to max(4, (outputLongEdge / aspect).roundToInt())
         } else {

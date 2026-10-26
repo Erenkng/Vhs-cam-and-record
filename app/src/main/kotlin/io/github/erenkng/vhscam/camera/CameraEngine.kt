@@ -22,6 +22,8 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraInfo
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CompositionSettings
+import androidx.camera.core.ConcurrentCamera
 import androidx.camera.core.DisplayOrientedMeteringPointFactory
 import androidx.camera.core.ExposureState
 import androidx.camera.core.FocusMeteringAction
@@ -35,6 +37,7 @@ import androidx.camera.core.SessionConfig
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.core.TorchState
 import androidx.camera.core.UseCase
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
 import androidx.camera.core.ZoomState
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
@@ -86,6 +89,8 @@ data class CameraCapabilities(
     val isFront: Boolean = false,
     /** Closest focus distance in diopters; 0 means the lens cannot be focused manually. */
     val minFocusDiopters: Float = 0f,
+    /** The phone can run the front and back cameras together (dual recording). */
+    val dualCamera: Boolean = false,
 ) {
     val manualFocus: Boolean get() = minFocusDiopters > 0f
 }
@@ -167,6 +172,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
         val cameraProvider = provider ?: ProcessCameraProvider.awaitInstance(context).also { provider = it }
         val hasFront = hasCamera(cameraProvider, CameraSelector.DEFAULT_FRONT_CAMERA)
         val hasBack = hasCamera(cameraProvider, CameraSelector.DEFAULT_BACK_CAMERA)
+        val dualPair = dualCameraPair(cameraProvider)
         val front = if (request.front) hasFront else !hasBack
         val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
 
@@ -193,7 +199,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
                 useCases += capture
                 effect = VhsCameraEffect(CameraEffect.PREVIEW, processor, onEffectError)
             }
-            CaptureMode.VIDEO -> {
+            CaptureMode.VIDEO, CaptureMode.DUAL -> {
                 val quality = request.videoQuality.toCameraX()
                 val recorder = Recorder.Builder()
                     .setQualitySelector(QualitySelector.from(quality, FallbackStrategy.lowerQualityOrHigherThan(quality)))
@@ -213,7 +219,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
         }
 
         // Portrait view port so every output shares one crop (what you see is what you get).
-        val portraitAspect = if (request.mode == CaptureMode.VIDEO && request.videoAspect == AspectSetting.RATIO_16_9) {
+        val portraitAspect = if (request.mode != CaptureMode.PHOTO && request.videoAspect == AspectSetting.RATIO_16_9) {
             Rational(9, 16)
         } else {
             Rational(3, 4)
@@ -223,14 +229,46 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
             .build()
 
         cameraProvider.unbindAll()
-        val bound = cameraProvider.bindToLifecycle(
-            owner,
-            selector,
-            SessionConfig(useCases = useCases, viewPort = viewPort, effects = listOf(effect)),
-        )
-        attach(bound, owner, front, hasFront)
+        if (request.mode == CaptureMode.DUAL && dualPair != null) {
+            // Both cameras share one preview and one video capture: CameraX composites them,
+            // picture in picture, and then runs our effect on the result, so the tape look
+            // covers both pictures like a video mixer feeding a VCR.
+            val (back, frontInfo) = dualPair
+            val (main, inset) = if (front) frontInfo to back else back to frontInfo
+            val group = UseCaseGroup.Builder()
+                .apply { useCases.forEach { addUseCase(it) } }
+                .setViewPort(viewPort)
+                .addEffect(effect)
+                .build()
+            val concurrent = cameraProvider.bindToLifecycle(
+                listOf(
+                    ConcurrentCamera.SingleCameraConfig(main.cameraSelector, group, CompositionSettings.DEFAULT, owner),
+                    ConcurrentCamera.SingleCameraConfig(inset.cameraSelector, group, PICTURE_IN_PICTURE, owner),
+                ),
+            )
+            attach(concurrent.cameras.first(), owner, front, hasFront, dualCamera = true)
+        } else {
+            val bound = cameraProvider.bindToLifecycle(
+                owner,
+                selector,
+                SessionConfig(useCases = useCases, viewPort = viewPort, effects = listOf(effect)),
+            )
+            attach(bound, owner, front, hasFront, dualCamera = dualPair != null)
+        }
         return _capabilities.value
     }
+
+    /** A back and a front camera that can stream at the same time, if the phone has them. */
+    private fun dualCameraPair(provider: ProcessCameraProvider): Pair<CameraInfo, CameraInfo>? =
+        try {
+            provider.availableConcurrentCameraInfos.firstNotNullOfOrNull { infos ->
+                val back = infos.firstOrNull { it.lensFacing == CameraSelector.LENS_FACING_BACK }
+                val front = infos.firstOrNull { it.lensFacing == CameraSelector.LENS_FACING_FRONT }
+                if (back != null && front != null) back to front else null
+            }
+        } catch (e: Exception) {
+            null
+        }
 
     private fun hasCamera(provider: ProcessCameraProvider, selector: CameraSelector): Boolean =
         try {
@@ -239,7 +277,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
             false
         }
 
-    private fun attach(bound: Camera, owner: LifecycleOwner, front: Boolean, hasFront: Boolean) {
+    private fun attach(bound: Camera, owner: LifecycleOwner, front: Boolean, hasFront: Boolean, dualCamera: Boolean) {
         observedInfo?.let {
             it.zoomState.removeObserver(zoomObserver)
             it.torchState.removeObserver(torchObserver)
@@ -255,6 +293,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
             hasFrontCamera = hasFront,
             isFront = front,
             minFocusDiopters = minFocusDiopters(info),
+            dualCamera = dualCamera,
         )
     }
 
@@ -419,6 +458,13 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
 
     companion object {
         private val PHOTO_SIZE = Size(2560, 1920)
+
+        /** Where the second camera goes in dual mode: a small inset near a corner. */
+        private val PICTURE_IN_PICTURE: CompositionSettings = CompositionSettings.Builder()
+            .setAlpha(1f)
+            .setOffset(0.55f, 0.55f)
+            .setScale(0.36f, 0.36f)
+            .build()
 
         private fun FlashSetting.toCameraX(): Int = when (this) {
             FlashSetting.OFF -> ImageCapture.FLASH_MODE_OFF
