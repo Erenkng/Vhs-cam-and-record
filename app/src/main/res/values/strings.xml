@@ -187,6 +187,8 @@
     <string name="keep_originals">Keep originals</string>
     <string name="keep_originals_help">Lets you change a photo\'s look later. Uses %1$s.</string>
     <string name="clear_originals">Delete originals</string>
+    <string name="clear_originals_body">Photos you already took won't be able to change their look any more.</string>
+    <string name="settings_photos">Photos</string>
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_start">Let\'s roll</string>

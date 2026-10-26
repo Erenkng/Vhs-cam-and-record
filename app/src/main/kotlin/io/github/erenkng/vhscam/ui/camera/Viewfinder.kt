@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -187,71 +188,84 @@ fun ViewfinderPanel(
                 }
             }
 
-            AnimatedVisibility(
-                visible = state.focus != null && state.exposure.supported,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
-            ) {
-                ExposureControl(state, actions)
-            }
+            // The controls sit inside the look's crop, so a square or 8-bit frame doesn't cut them off.
+            CropBox(animatedCrop) {
+                AnimatedVisibility(
+                    visible = state.focus != null && state.exposure.supported,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp),
+                ) {
+                    ExposureControl(state, actions)
+                }
 
-            Column(
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp).rotate(iconRotation),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val active = state.recording as? RecordingUi.Active
-                if (active != null) {
-                    RecordingBadge(
-                        elapsedMillis = active.elapsedMillis,
-                        // Interval REC pauses between snippets by itself; that isn't a pause to report.
-                        paused = active.paused && state.interval == null,
-                        pausedLabel = stringResource(R.string.paused),
+                Column(
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp).rotate(iconRotation),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val active = state.recording as? RecordingUi.Active
+                    if (active != null) {
+                        RecordingBadge(
+                            elapsedMillis = active.elapsedMillis,
+                            // Interval REC pauses between snippets by itself; that isn't a pause to report.
+                            paused = active.paused && state.interval == null,
+                            pausedLabel = stringResource(R.string.paused),
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = state.interval != null,
+                        enter = fadeIn() + expandVertically(motion.fastSpatialSpec()),
+                        exit = fadeOut() + shrinkVertically(motion.fastSpatialSpec()),
+                    ) {
+                        IntervalBadge(nextInSeconds = state.interval?.nextInSeconds)
+                    }
+                    AnimatedVisibility(
+                        visible = state.booth != null,
+                        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    ) {
+                        var lastBooth by remember { mutableStateOf(state.booth) }
+                        SideEffect { if (state.booth != null) lastBooth = state.booth }
+                        (state.booth ?: lastBooth)?.let { BoothProgress(it) }
+                    }
+                }
+
+                // In the middle, so it reads the right way up however the phone is held.
+                AnimatedVisibility(
+                    visible = state.digitalZoomAvailable && (zooming || state.digitalZoom > 1f),
+                    enter = fadeIn(tween(90)),
+                    exit = fadeOut(tween(400)),
+                    modifier = Modifier.align(Alignment.Center),
+                ) {
+                    CamcorderZoomBar(
+                        zoom = state.effectiveZoom,
+                        min = state.zoom.min,
+                        lensMax = state.zoom.max,
+                        max = state.zoom.max * CameraViewModel.DIGITAL_ZOOM_MAX,
+                        modifier = Modifier.rotate(iconRotation),
                     )
                 }
-                AnimatedVisibility(
-                    visible = state.interval != null,
-                    enter = fadeIn() + expandVertically(motion.fastSpatialSpec()),
-                    exit = fadeOut() + shrinkVertically(motion.fastSpatialSpec()),
-                ) {
-                    IntervalBadge(nextInSeconds = state.interval?.nextInSeconds)
-                }
-                AnimatedVisibility(
-                    visible = state.booth != null,
-                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
-                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
-                ) {
-                    var lastBooth by remember { mutableStateOf(state.booth) }
-                    SideEffect { if (state.booth != null) lastBooth = state.booth }
-                    (state.booth ?: lastBooth)?.let { BoothProgress(it) }
-                }
-            }
 
-            // In the middle, so it reads the right way up however the phone is held.
-            AnimatedVisibility(
-                visible = state.digitalZoomAvailable && (zooming || state.digitalZoom > 1f),
-                enter = fadeIn(tween(90)),
-                exit = fadeOut(tween(400)),
-                modifier = Modifier.align(Alignment.Center),
-            ) {
-                CamcorderZoomBar(
-                    zoom = state.effectiveZoom,
-                    min = state.zoom.min,
-                    lensMax = state.zoom.max,
-                    max = state.zoom.max * CameraViewModel.DIGITAL_ZOOM_MAX,
-                    modifier = Modifier.rotate(iconRotation),
+                ZoomPresets(
+                    zoom = state.zoom,
+                    ratio = state.effectiveZoom,
+                    rotation = iconRotation,
+                    onZoom = actions.onZoom,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
                 )
             }
-
-            ZoomPresets(
-                zoom = state.zoom,
-                ratio = state.effectiveZoom,
-                rotation = iconRotation,
-                onZoom = actions.onZoom,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
-            )
         }
+    }
+}
+
+/** A box the size of a centred crop with [aspect] (width / height) of the available space. */
+@Composable
+private fun CropBox(aspect: Float, content: @Composable BoxScope.() -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        val boxAspect = maxWidth / maxHeight
+        val (width, height) = if (aspect < boxAspect) maxHeight * aspect to maxHeight else maxWidth to maxWidth / aspect
+        Box(Modifier.size(width, height), content = content)
     }
 }
 

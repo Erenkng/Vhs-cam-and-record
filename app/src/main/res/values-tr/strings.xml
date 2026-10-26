@@ -178,6 +178,8 @@
     <string name="keep_originals">Orijinalleri sakla</string>
     <string name="keep_originals_help">Fotoğrafların stilini sonradan değiştirebilmen için. Kapladığı yer: %1$s.</string>
     <string name="clear_originals">Orijinalleri sil</string>
+    <string name="clear_originals_body">Daha önce çektiğin fotoğrafların stili artık değiştirilemeyecek.</string>
+    <string name="settings_photos">Fotoğraflar</string>
     <string name="onboarding_skip">Atla</string>
     <string name="onboarding_next">İleri</string>
     <string name="onboarding_start">Başlayalım</string>

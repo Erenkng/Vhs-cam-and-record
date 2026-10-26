@@ -1,6 +1,7 @@
 package io.github.erenkng.vhscam.ui
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.pm.PackageManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +25,8 @@ import io.github.erenkng.vhscam.ui.gallery.GalleryScreen
 import io.github.erenkng.vhscam.ui.gallery.GalleryViewModel
 import io.github.erenkng.vhscam.ui.gallery.ViewerScreen
 import io.github.erenkng.vhscam.ui.permission.PermissionScreen
+import io.github.erenkng.vhscam.ui.restyle.RestyleScreen
+import io.github.erenkng.vhscam.ui.restyle.RestyleViewModel
 import io.github.erenkng.vhscam.ui.settings.LicensesScreen
 import io.github.erenkng.vhscam.ui.settings.SettingsScreen
 import io.github.erenkng.vhscam.ui.theme.VhsCamTheme
@@ -37,6 +40,9 @@ data object GalleryRoute
 
 @Serializable
 data class ViewerRoute(val index: Int)
+
+@Serializable
+data class RestyleRoute(val mediaId: Long)
 
 @Serializable
 data object SettingsRoute
@@ -69,7 +75,7 @@ fun AppRoot() {
                 )
             }
             composable<GalleryRoute> {
-                val gallery: GalleryViewModel = viewModel(factory = GalleryViewModel.factory(app.container.media))
+                val gallery: GalleryViewModel = viewModel(factory = GalleryViewModel.factory(app.container))
                 GalleryScreen(
                     viewModel = gallery,
                     onBack = { nav.popBackStack() },
@@ -81,9 +87,19 @@ fun AppRoot() {
                 val galleryEntry = remember(entry) { nav.getBackStackEntry<GalleryRoute>() }
                 val gallery: GalleryViewModel = viewModel(
                     viewModelStoreOwner = galleryEntry,
-                    factory = GalleryViewModel.factory(app.container.media),
+                    factory = GalleryViewModel.factory(app.container),
                 )
-                ViewerScreen(viewModel = gallery, startIndex = route.index, onBack = { nav.popBackStack() })
+                ViewerScreen(
+                    viewModel = gallery,
+                    startIndex = route.index,
+                    onBack = { nav.popBackStack() },
+                    onRestyle = { item -> nav.navigate(RestyleRoute(ContentUris.parseId(item.uri))) },
+                )
+            }
+            composable<RestyleRoute> { entry ->
+                val route = entry.toRoute<RestyleRoute>()
+                val restyle: RestyleViewModel = viewModel(factory = RestyleViewModel.factory(app.container, route.mediaId))
+                RestyleScreen(viewModel = restyle, onBack = { nav.popBackStack() })
             }
             composable<SettingsRoute> {
                 SettingsScreen(onBack = { nav.popBackStack() }, onOpenLicenses = { nav.navigate(LicensesRoute) })

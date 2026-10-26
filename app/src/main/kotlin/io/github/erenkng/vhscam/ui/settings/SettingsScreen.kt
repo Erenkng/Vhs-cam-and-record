@@ -3,6 +3,7 @@ package io.github.erenkng.vhscam.ui.settings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -20,9 +22,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,12 +55,21 @@ fun SettingsScreen(onBack: () -> Unit, onOpenLicenses: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val versionName = remember { context.versionName() }
+    var originalsBytes by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) { originalsBytes = container.originals.sizeBytes() }
     SettingsContent(
         settings = settings,
         versionName = versionName,
         onChange = { transform -> scope.launch { container.settings.update(transform) } },
         onBack = onBack,
         onOpenLicenses = onOpenLicenses,
+        originalsBytes = originalsBytes,
+        onClearOriginals = {
+            scope.launch {
+                container.originals.clear()
+                originalsBytes = container.originals.sizeBytes()
+            }
+        },
     )
 }
 
@@ -77,8 +91,12 @@ fun SettingsContent(
     onBack: () -> Unit,
     onOpenLicenses: () -> Unit,
     modifier: Modifier = Modifier,
+    originalsBytes: Long = 0L,
+    onClearOriginals: () -> Unit = {},
 ) {
+    val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var confirmClear by remember { mutableStateOf(false) }
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -147,6 +165,34 @@ fun SettingsContent(
                 ),
             )
 
+            header(R.string.settings_photos)
+            item {
+                SegmentedListItem(
+                    checked = settings.keepOriginals,
+                    onCheckedChange = { v -> onChange { it.copy(keepOriginals = v) } },
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                    colors = groupedRowColors(),
+                    leadingContent = { Icon(painterResource(R.drawable.ic_style), contentDescription = null) },
+                    supportingContent = {
+                        Text(stringResource(R.string.keep_originals_help, Formatter.formatShortFileSize(context, originalsBytes)))
+                    },
+                    trailingContent = { Switch(checked = settings.keepOriginals, onCheckedChange = null) },
+                ) {
+                    Text(stringResource(R.string.keep_originals))
+                }
+            }
+            item {
+                SegmentedListItem(
+                    onClick = { confirmClear = true },
+                    shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                    enabled = originalsBytes > 0L,
+                    colors = groupedRowColors(),
+                    leadingContent = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
+                ) {
+                    Text(stringResource(R.string.clear_originals))
+                }
+            }
+
             header(R.string.settings_appearance)
             toggles(
                 listOf(
@@ -179,6 +225,24 @@ fun SettingsContent(
                 }
             }
         }
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            icon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
+            title = { Text(stringResource(R.string.clear_originals)) },
+            text = { Text(stringResource(R.string.clear_originals_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClear = false
+                    onClearOriginals()
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
     }
 }
 

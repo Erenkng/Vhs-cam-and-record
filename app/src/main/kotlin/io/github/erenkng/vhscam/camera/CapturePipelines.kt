@@ -26,6 +26,7 @@ import io.github.erenkng.vhscam.media.MediaRepository
 import io.github.erenkng.vhscam.media.OriginalsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.time.LocalDateTime
@@ -71,11 +72,7 @@ class PhotoPipeline(
         upright.recycle()
 
         val file = withContext(Dispatchers.IO) {
-            val finished = when (spec) {
-                is LookSpec.Polaroid -> instantFrame(rendered)
-                is LookSpec.GameBoy -> pixelFrame(rendered, spec.params.shades)
-                else -> rendered
-            }
+            val finished = framed(rendered, spec)
             val quality = when (spec) {
                 is LookSpec.Ccd -> spec.params.jpegQuality
                 // Keep the pixel edges sharp.
@@ -102,6 +99,51 @@ class PhotoPipeline(
             }
         }
         return uri
+    }
+
+    /**
+     * Renders a look onto [upright] the way [develop] would, frame included, without saving.
+     * [upright] is left as it is, ready for the next preview.
+     */
+    suspend fun preview(
+        upright: Bitmap,
+        spec: LookSpec,
+        osd: OsdContent,
+        mirror: Boolean,
+        lookAspect: Float,
+        longEdge: Int,
+    ): Bitmap {
+        val rendered = stillRenderer.render(
+            source = upright,
+            spec = spec,
+            osdContent = osd,
+            mirror = mirror,
+            lookAspect = lookAspect,
+            outputLongEdge = longEdge,
+            seedFrame = PREVIEW_SEED,
+        )
+        return withContext(Dispatchers.Default) {
+            // The digicam's JPEG blocks are part of its look.
+            val compressed = if (spec is LookSpec.Ccd) recompressed(rendered, spec.params.jpegQuality) else rendered
+            framed(compressed, spec).also { if (it !== compressed) compressed.recycle() }
+        }
+    }
+
+    private fun recompressed(image: Bitmap, quality: Int): Bitmap {
+        val bytes = ByteArrayOutputStream().use { out ->
+            image.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            out.toByteArray()
+        }
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return image
+        image.recycle()
+        return decoded
+    }
+
+    /** The paper or plastic around the picture, for looks that have one. */
+    private fun framed(rendered: Bitmap, spec: LookSpec): Bitmap = when (spec) {
+        is LookSpec.Polaroid -> instantFrame(rendered)
+        is LookSpec.GameBoy -> pixelFrame(rendered, spec.params.shades)
+        else -> rendered
     }
 
     /** Develops photobooth shots with a look and prints them on one strip. */
@@ -173,7 +215,8 @@ class PhotoPipeline(
         return strip
     }
 
-    private fun decodeUpright(photo: CapturedPhoto, neededLongEdge: Int): Bitmap {
+    /** Decodes [photo] upright, at least [neededLongEdge] pixels on its long edge where possible. */
+    fun decodeUpright(photo: CapturedPhoto, neededLongEdge: Int): Bitmap {
         val decoded = photo.bitmap ?: run {
             val jpeg = photo.jpeg ?: error("Empty capture")
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -256,6 +299,9 @@ class PhotoPipeline(
         const val PAPER_COLOR = 0xFFF4F1EA.toInt()
         const val INK_COLOR = 0xFF3B3836.toInt()
         const val STRIP_FRAME_EDGE = 900
+
+        /** Previews use the same grain every time, so only the changes the user makes show. */
+        const val PREVIEW_SEED = 4_242
         val STRIP_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
         val EXIF_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
     }

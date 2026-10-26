@@ -1,5 +1,6 @@
 package io.github.erenkng.vhscam.ui
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -35,6 +37,8 @@ import io.github.erenkng.vhscam.ui.camera.IntervalUi
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
 import io.github.erenkng.vhscam.ui.gallery.GalleryContent
 import io.github.erenkng.vhscam.ui.permission.PermissionContent
+import io.github.erenkng.vhscam.ui.restyle.RestyleContent
+import io.github.erenkng.vhscam.ui.restyle.RestyleUiState
 import io.github.erenkng.vhscam.ui.settings.SettingsContent
 import io.github.erenkng.vhscam.ui.theme.VhsCamTheme
 import org.junit.Rule
@@ -200,11 +204,48 @@ class ScreenshotTest {
     }
 
     @Test
+    fun restyle() = capture("10_restyle") {
+        val preview = remember { fakeInstantPhoto() }
+        RestyleContent(
+            state = RestyleUiState(settings = settings, look = Look.POLAROID, preview = preview),
+            onBack = {},
+            onLook = {},
+            onIntensity = {},
+            onSave = {},
+        )
+    }
+
+    @Test
     fun settingsScreen() = capture("05_settings") {
         VhsCamTheme(darkTheme = false, dynamicColor = false) {
-            SettingsContent(settings = settings, versionName = "0.5", onChange = {}, onBack = {}, onOpenLicenses = {})
+            SettingsContent(
+                settings = settings,
+                versionName = "1.0",
+                onChange = {},
+                onBack = {},
+                onOpenLicenses = {},
+                originalsBytes = 18_400_000L,
+            )
         }
     }
+}
+
+/** An instant photo of the fake scene, for the restyle preview. */
+private fun fakeInstantPhoto(): Bitmap {
+    val bitmap = Bitmap.createBitmap(880, 1070, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    canvas.drawColor(0xFFF3F0E8.toInt())
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    paint.shader = android.graphics.LinearGradient(
+        0f, 50f, 0f, 840f, 0xFF6A8CAF.toInt(), 0xFFE8A87C.toInt(), android.graphics.Shader.TileMode.CLAMP,
+    )
+    canvas.drawRect(50f, 66f, 830f, 846f, paint)
+    paint.shader = null
+    paint.color = 0xFFFFE8A3.toInt()
+    canvas.drawCircle(560f, 400f, 90f, paint)
+    paint.color = 0xFF3E6B48.toInt()
+    canvas.drawRect(50f, 600f, 830f, 846f, paint)
+    return bitmap
 }
 
 /** A stand-in for the camera feed: a warm sky, a sun and some hills. */

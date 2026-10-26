@@ -18,7 +18,7 @@ class VhsCamApp : Application(), SingletonImageLoader.Factory {
         container.appScope.launch { container.videoPipeline.recoverLeftovers() }
     }
 
-    /** Coil with video frame decoding, for tape thumbnails. */
+    /** Coil with video frame decoding, for tape thumbnails. coil-gif adds animated GIFs by itself. */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
             .components { add(VideoFrameDecoder.Factory()) }
