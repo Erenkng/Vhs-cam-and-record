@@ -1,25 +1,32 @@
 package io.github.erenkng.vhscam.camera
 
+import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.res.ResourcesCompat
 import androidx.exifinterface.media.ExifInterface
+import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.audio.TapeAudioExporter
 import io.github.erenkng.vhscam.core.audio.TapeAudioConfig
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.media.FileNames
 import io.github.erenkng.vhscam.gl.LookSpec
 import io.github.erenkng.vhscam.gl.OsdContent
 import io.github.erenkng.vhscam.gl.StillRenderer
 import io.github.erenkng.vhscam.media.MediaRepository
+import io.github.erenkng.vhscam.media.OriginalsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.time.LocalDateTime
@@ -32,17 +39,23 @@ class PhotoPipeline(
     private val context: Context,
     private val stillRenderer: StillRenderer,
     private val media: MediaRepository,
+    private val originals: OriginalsStore,
 ) {
 
+    /**
+     * Develops [photo] with a look and saves it. With [keepOriginal] the camera's own JPEG is
+     * kept too, so the look can be changed later (see [OriginalsStore]).
+     */
     suspend fun develop(
         photo: CapturedPhoto,
-        look: PhotoLook,
+        look: Look,
         spec: LookSpec,
         osd: OsdContent,
         mirror: Boolean,
         lookAspect: Float,
         capturedAt: LocalDateTime,
         capturedAtMillis: Long,
+        keepOriginal: Boolean = false,
     ): Uri {
         val upright = withContext(Dispatchers.Default) {
             decodeUpright(photo, neededLongEdge = max(look.stillLongEdge, 1280))
@@ -59,8 +72,13 @@ class PhotoPipeline(
         upright.recycle()
 
         val file = withContext(Dispatchers.IO) {
-            val finished = if (look == PhotoLook.POLAROID) instantFrame(rendered) else rendered
-            val quality = (spec as? LookSpec.Ccd)?.params?.jpegQuality ?: JPEG_QUALITY
+            val finished = framed(rendered, spec)
+            val quality = when (spec) {
+                is LookSpec.Ccd -> spec.params.jpegQuality
+                // Keep the pixel edges sharp.
+                is LookSpec.GameBoy -> 96
+                else -> JPEG_QUALITY
+            }
             val out = File(context.cacheDir, "develop_${System.nanoTime()}.jpg")
             out.outputStream().use { finished.compress(Bitmap.CompressFormat.JPEG, quality, it) }
             if (finished !== rendered) finished.recycle()
@@ -68,14 +86,137 @@ class PhotoPipeline(
             writeExif(out, capturedAt)
             out
         }
-        return try {
+        val uri = try {
             media.savePhoto(file, FileNames.photo(capturedAt, look), capturedAtMillis)
+        } finally {
+            file.delete()
+        }
+        if (keepOriginal) {
+            try {
+                originals.save(ContentUris.parseId(uri), photo, mirror, capturedAtMillis)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not keep the original", e)
+            }
+        }
+        return uri
+    }
+
+    /**
+     * Renders a look onto [upright] the way [develop] would, frame included, without saving.
+     * [upright] is left as it is, ready for the next preview.
+     */
+    suspend fun preview(
+        upright: Bitmap,
+        spec: LookSpec,
+        osd: OsdContent,
+        mirror: Boolean,
+        lookAspect: Float,
+        longEdge: Int,
+    ): Bitmap {
+        val rendered = stillRenderer.render(
+            source = upright,
+            spec = spec,
+            osdContent = osd,
+            mirror = mirror,
+            lookAspect = lookAspect,
+            outputLongEdge = longEdge,
+            seedFrame = PREVIEW_SEED,
+        )
+        return withContext(Dispatchers.Default) {
+            // The digicam's JPEG blocks are part of its look.
+            val compressed = if (spec is LookSpec.Ccd) recompressed(rendered, spec.params.jpegQuality) else rendered
+            framed(compressed, spec).also { if (it !== compressed) compressed.recycle() }
+        }
+    }
+
+    private fun recompressed(image: Bitmap, quality: Int): Bitmap {
+        val bytes = ByteArrayOutputStream().use { out ->
+            image.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            out.toByteArray()
+        }
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return image
+        image.recycle()
+        return decoded
+    }
+
+    /** The paper or plastic around the picture, for looks that have one. */
+    private fun framed(rendered: Bitmap, spec: LookSpec): Bitmap = when (spec) {
+        is LookSpec.Polaroid -> instantFrame(rendered)
+        is LookSpec.GameBoy -> pixelFrame(rendered, spec.params.shades)
+        else -> rendered
+    }
+
+    /** Develops photobooth shots with a look and prints them on one strip. */
+    suspend fun developStrip(
+        photos: List<CapturedPhoto>,
+        look: Look,
+        specFor: () -> LookSpec,
+        osd: OsdContent,
+        mirrorSelfies: Boolean,
+        lookAspect: Float,
+        capturedAt: LocalDateTime,
+        capturedAtMillis: Long,
+    ): Uri {
+        // 8-bit pixels stay crisp at a whole multiple of 128.
+        val frameEdge = if (look == Look.GAMEBOY) 512 else STRIP_FRAME_EDGE
+        val frames = photos.map { photo ->
+            val upright = withContext(Dispatchers.Default) { decodeUpright(photo, neededLongEdge = frameEdge) }
+            val rendered = stillRenderer.render(
+                source = upright,
+                spec = specFor(),
+                osdContent = osd,
+                mirror = photo.front && mirrorSelfies,
+                lookAspect = lookAspect,
+                outputLongEdge = frameEdge,
+                seedFrame = Random.nextInt(1, 1_000_000),
+            )
+            upright.recycle()
+            rendered
+        }
+        val file = withContext(Dispatchers.IO) {
+            val strip = photoboothStrip(frames, capturedAt)
+            frames.forEach { it.recycle() }
+            val out = File(context.cacheDir, "strip_${System.nanoTime()}.jpg")
+            out.outputStream().use { strip.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
+            strip.recycle()
+            writeExif(out, capturedAt)
+            out
+        }
+        return try {
+            media.savePhoto(file, FileNames.strip(capturedAt), capturedAtMillis)
         } finally {
             file.delete()
         }
     }
 
-    private fun decodeUpright(photo: CapturedPhoto, neededLongEdge: Int): Bitmap {
+    /** Frames stacked on photo paper, with the date printed underneath like a booth strip. */
+    private fun photoboothStrip(frames: List<Bitmap>, capturedAt: LocalDateTime): Bitmap {
+        val frameWidth = frames.maxOf { it.width }
+        val margin = frameWidth * 0.07f
+        val gap = frameWidth * 0.045f
+        val footer = frameWidth * 0.2f
+        val height = margin + frames.sumOf { it.height } + gap * (frames.size - 1) + footer
+        val strip = Bitmap.createBitmap((frameWidth + 2 * margin).toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(strip)
+        canvas.drawColor(PAPER_COLOR)
+        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+        var y = margin
+        frames.forEach { frame ->
+            canvas.drawBitmap(frame, margin + (frameWidth - frame.width) / 2f, y, paint)
+            y += frame.height + gap
+        }
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = ResourcesCompat.getFont(context, R.font.vt323) ?: Typeface.MONOSPACE
+            textSize = footer * 0.36f
+            color = INK_COLOR
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("VHS CAM  ${capturedAt.format(STRIP_DATE)}", strip.width / 2f, strip.height - footer * 0.4f, text)
+        return strip
+    }
+
+    /** Decodes [photo] upright, at least [neededLongEdge] pixels on its long edge where possible. */
+    fun decodeUpright(photo: CapturedPhoto, neededLongEdge: Int): Bitmap {
         val decoded = photo.bitmap ?: run {
             val jpeg = photo.jpeg ?: error("Empty capture")
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -103,6 +244,27 @@ class PhotoPipeline(
         } else {
             rotated.copy(Bitmap.Config.ARGB_8888, false).also { rotated.recycle() }
         }
+    }
+
+    /**
+     * The 8-bit camera's plain frame: a light 16 px border with a dark line around the
+     * 128 x 112 picture (160 x 144 in all), at the picture's magnification.
+     */
+    private fun pixelFrame(image: Bitmap, shades: List<Float>): Bitmap {
+        fun shade(i: Int) = Color.rgb(
+            (shades[i * 3] * 255).toInt(), (shades[i * 3 + 1] * 255).toInt(), (shades[i * 3 + 2] * 255).toInt(),
+        )
+        val pixel = minOf(image.width, image.height) / 112f
+        val border = 16 * pixel
+        val framed = Bitmap.createBitmap(
+            (image.width + 2 * border).toInt(), (image.height + 2 * border).toInt(), Bitmap.Config.ARGB_8888,
+        )
+        val canvas = Canvas(framed)
+        canvas.drawColor(shade(3))
+        val line = Paint().apply { color = shade(0) }
+        canvas.drawRect(border - pixel, border - pixel, border + image.width + pixel, border + image.height + pixel, line)
+        canvas.drawBitmap(image, border, border, null)
+        return framed
     }
 
     /** Polaroid 600 proportions: an 88 x 107 mm card around a 79 x 79 mm picture. */
@@ -134,6 +296,13 @@ class PhotoPipeline(
         const val TAG = "PhotoPipeline"
         const val JPEG_QUALITY = 92
         const val CARD_COLOR = 0xFFF3F0E8.toInt()
+        const val PAPER_COLOR = 0xFFF4F1EA.toInt()
+        const val INK_COLOR = 0xFF3B3836.toInt()
+        const val STRIP_FRAME_EDGE = 900
+
+        /** Previews use the same grain every time, so only the changes the user makes show. */
+        const val PREVIEW_SEED = 4_242
+        val STRIP_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
         val EXIF_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
     }
 }
@@ -153,12 +322,13 @@ class VideoPipeline(
     suspend fun finish(
         recorded: File,
         hasAudio: Boolean,
+        look: Look,
         speed: TapeSpeed,
         capturedAt: LocalDateTime,
         capturedAtMillis: Long,
         onProgress: (Float) -> Unit,
     ): Uri {
-        val name = FileNames.video(capturedAt)
+        val name = FileNames.video(capturedAt, look)
         if (!hasAudio) return saveAndDelete(recorded, name, capturedAtMillis)
         val processed = File(recordingsDir, "tape_${recorded.name}")
         return try {

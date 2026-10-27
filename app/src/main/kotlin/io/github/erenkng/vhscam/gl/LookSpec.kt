@@ -1,31 +1,70 @@
 package io.github.erenkng.vhscam.gl
 
+import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CcdParams
+import io.github.erenkng.vhscam.core.look.CctvParams
 import io.github.erenkng.vhscam.core.look.FilmParams
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.GameBoyParams
+import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.PolaroidParams
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.look.VhsParams
+import io.github.erenkng.vhscam.core.look.WebcamParams
 
 /** Everything the renderer needs to know about the look of a frame. */
 sealed interface LookSpec {
-    val kind: PhotoLook
+    val kind: Look
 
-    /** @param glitch 0..1 burst of tape tearing, e.g. right after recording starts. */
-    data class Vhs(val params: VhsParams, val speed: TapeSpeed, val glitch: Float = 0f) : LookSpec {
-        override val kind get() = PhotoLook.VHS
+    /** Vignette and line structure added by the present pass. */
+    val vignette: Float get() = 0f
+    val scanlines: Float get() = 0f
+
+    /** Magnify with nearest-neighbour sampling, for pixel-art looks. */
+    val nearest: Boolean get() = false
+
+    /** Show a new picture every this many camera frames. */
+    val holdFrames: Int get() = kind.holdFrames
+
+    /**
+     * @param glitch 0..1 burst of tape tearing, e.g. right after recording starts.
+     * @param effect the camcorder's digital effect, applied before the tape.
+     */
+    data class Vhs(
+        val params: VhsParams,
+        val speed: TapeSpeed,
+        val glitch: Float = 0f,
+        val effect: CamcorderEffect = CamcorderEffect.NONE,
+    ) : LookSpec {
+        override val kind get() = Look.VHS
+        override val vignette get() = params.vignette
+        override val scanlines get() = params.scanlines
+        override val holdFrames get() = effect.holdFrames
     }
 
     data class Ccd(val params: CcdParams) : LookSpec {
-        override val kind get() = PhotoLook.CCD
+        override val kind get() = Look.CCD
     }
 
     data class Film(val params: FilmParams, val leakSeed: Float) : LookSpec {
-        override val kind get() = PhotoLook.FILM
+        override val kind get() = Look.FILM
     }
 
     data class Polaroid(val params: PolaroidParams, val seed: Float) : LookSpec {
-        override val kind get() = PhotoLook.POLAROID
+        override val kind get() = Look.POLAROID
+    }
+
+    data class GameBoy(val params: GameBoyParams) : LookSpec {
+        override val kind get() = Look.GAMEBOY
+        override val nearest get() = true
+    }
+
+    data class Webcam(val params: WebcamParams) : LookSpec {
+        override val kind get() = Look.WEBCAM
+    }
+
+    data class Cctv(val params: CctvParams) : LookSpec {
+        override val kind get() = Look.CCTV
+        override val scanlines get() = params.scanlines
     }
 }
 
@@ -38,4 +77,8 @@ data class OsdContent(
     val counter: String? = null,
     val digitalStamp: String? = null,
     val filmStamp: String? = null,
+    val cctvStamp: String? = null,
 )
+
+/** What the present pass adds on top of the look: the VCR blue screen and the fader. */
+data class PresentFx(val blueScreen: Float = 0f, val fade: Float = 0f, val fadeWhite: Boolean = false)

@@ -117,3 +117,16 @@ export function drawFilmStamp(ctx, w, h, text) {
   }
   ctx.restore();
 }
+
+/** Security camera overlay: camera name top-left, date and time top-right. */
+export function drawCctvOverlay(ctx, w, h, { camera = 'CAM 01', stamp }) {
+  const size = h * 0.06;
+  ctx.font = `${size}px VT323`;
+  ctx.textBaseline = 'alphabetic';
+  const y = h * 0.1;
+  outlinedText(ctx, camera, w * 0.05, y, size, '#FFFFFF');
+  if (stamp) {
+    const tw = ctx.measureText(stamp).width;
+    outlinedText(ctx, stamp, w * 0.95 - tw, y, size, '#FFFFFF');
+  }
+}

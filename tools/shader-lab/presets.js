@@ -36,3 +36,19 @@ export const POLAROID = {
   saturation: 0.74, contrast: 0.84, fade: 0.12, tint: [1.02, 1.03, 0.94], softness: 1.4,
   bloom: 0.25, chemistry: 0.4, vignette: 0.32,
 };
+
+// 8-bit handheld camera: Game Boy LCD greens, darkest to lightest.
+export const GAMEBOY = {
+  contrast: 1.35, brightness: 0.02, edge: 0.55, dither: 1.0,
+  shades: [[0.059, 0.220, 0.059], [0.188, 0.384, 0.188], [0.545, 0.675, 0.059], [0.608, 0.737, 0.059]],
+};
+
+export const WEBCAM = {
+  exposure: 1.3, contrast: 1.2, saturation: 0.6, tint: [0.88, 1.02, 1.16], noise: 0.11,
+  blockiness: 0.95, vignette: 0.4,
+};
+
+export const CCTV = {
+  contrast: 1.45, noise: 0.1, barrel: 0.22, hum: 0.12, tint: [0.92, 1.0, 0.94], vignette: 0.5,
+  scanlines: 0.18,
+};

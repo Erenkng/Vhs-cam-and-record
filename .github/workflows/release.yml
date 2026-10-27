@@ -52,8 +52,16 @@ jobs:
         run: |
           keystore="$RUNNER_TEMP/release.p12"
           if [ -n "$SIGNING_KEYSTORE_BASE64" ] && [ -n "$SIGNING_PASSWORD" ]; then
-            printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$keystore"
-            password="$SIGNING_PASSWORD"
+            # Pasting a secret on a phone can add line breaks or spaces; neither value has any.
+            # A paste that does not decode is reported by the check below.
+            printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$keystore" || true
+            password="$(printf '%s' "$SIGNING_PASSWORD" | tr -d '[:space:]')"
+            echo "::add-mask::$password"
+            # Check the key now, not after the tests, and say what to fix.
+            if ! keytool -list -keystore "$keystore" -storetype PKCS12 -storepass "$password" -alias vhscam > /dev/null 2>&1; then
+              echo "::error::The SIGNING_KEYSTORE_BASE64 and SIGNING_PASSWORD secrets do not open a key store with the alias vhscam. Add both secrets again."
+              exit 1
+            fi
             echo "ONE_TIME_KEY=false" >> "$GITHUB_ENV"
           else
             echo "::warning::No signing secrets; signing with a one-time key."

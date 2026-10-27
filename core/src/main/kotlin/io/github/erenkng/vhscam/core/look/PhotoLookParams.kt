@@ -54,6 +54,52 @@ data class PolaroidParams(
     val vignette: Float = 0.32f,
 )
 
+/** 8-bit handheld camera. Shades are RGB, darkest first (Game Boy LCD greens). */
+data class GameBoyParams(
+    val contrast: Float = 1.35f,
+    val brightness: Float = 0.02f,
+    /** The camera's built-in edge enhancement. */
+    val edge: Float = 0.55f,
+    /** Ordered dithering between the four shades. */
+    val dither: Float = 1f,
+    val shades: List<Float> = listOf(
+        0.059f, 0.220f, 0.059f,
+        0.188f, 0.384f, 0.188f,
+        0.545f, 0.675f, 0.059f,
+        0.608f, 0.737f, 0.059f,
+    ),
+)
+
+/** Mid-2000s USB webcam. */
+data class WebcamParams(
+    /** Gain of an auto-exposure that never quite copes. */
+    val exposure: Float = 1.3f,
+    val contrast: Float = 1.2f,
+    val saturation: Float = 0.6f,
+    val tintR: Float = 0.88f,
+    val tintG: Float = 1.02f,
+    val tintB: Float = 1.16f,
+    val noise: Float = 0.11f,
+    /** Motion-JPEG blocks in flat areas. */
+    val blockiness: Float = 0.95f,
+    val vignette: Float = 0.4f,
+)
+
+/** Security camera. */
+data class CctvParams(
+    val contrast: Float = 1.45f,
+    val noise: Float = 0.1f,
+    /** Wide-angle barrel distortion. */
+    val barrel: Float = 0.22f,
+    /** Mains hum bar rolling through the picture. */
+    val hum: Float = 0.12f,
+    val tintR: Float = 0.92f,
+    val tintG: Float = 1.0f,
+    val tintB: Float = 0.94f,
+    val vignette: Float = 0.5f,
+    val scanlines: Float = 0.18f,
+)
+
 /** Scales a look between a gentle (0) and a heavy (1) version; 0.5 is the default design. */
 object PhotoLookPresets {
 
@@ -95,6 +141,45 @@ object PhotoLookPresets {
             bloom = d.bloom * k,
             chemistry = d.chemistry * k,
             vignette = d.vignette * k,
+        )
+    }
+
+    fun gameBoy(intensity: Float = 0.5f): GameBoyParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = GameBoyParams()
+        return d.copy(
+            contrast = 1f + (d.contrast - 1f) * k,
+            edge = d.edge * k,
+            dither = (0.5f + 0.5f * k).coerceAtMost(1f),
+        )
+    }
+
+    fun webcam(intensity: Float = 0.5f): WebcamParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = WebcamParams()
+        return d.copy(
+            exposure = 1f + (d.exposure - 1f) * k,
+            contrast = 1f + (d.contrast - 1f) * k,
+            saturation = 1f + (d.saturation - 1f) * k,
+            tintR = 1f + (d.tintR - 1f) * k,
+            tintG = 1f + (d.tintG - 1f) * k,
+            tintB = 1f + (d.tintB - 1f) * k,
+            noise = d.noise * k,
+            blockiness = (d.blockiness * k).coerceAtMost(1f),
+            vignette = d.vignette * k,
+        )
+    }
+
+    fun cctv(intensity: Float = 0.5f): CctvParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = CctvParams()
+        return d.copy(
+            contrast = 1f + (d.contrast - 1f) * k,
+            noise = d.noise * k,
+            barrel = d.barrel * k,
+            hum = d.hum * k,
+            vignette = d.vignette * k,
+            scanlines = d.scanlines * k,
         )
     }
 }

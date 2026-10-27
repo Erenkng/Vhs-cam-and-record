@@ -6,15 +6,20 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
+import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
+import android.os.SystemClock
 import android.util.Rational
 import android.util.Size
 import android.view.Display
 import androidx.annotation.MainThread
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.AspectRatio
@@ -22,6 +27,8 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraInfo
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CompositionSettings
+import androidx.camera.core.ConcurrentCamera
 import androidx.camera.core.DisplayOrientedMeteringPointFactory
 import androidx.camera.core.ExposureState
 import androidx.camera.core.FocusMeteringAction
@@ -35,6 +42,7 @@ import androidx.camera.core.SessionConfig
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.core.TorchState
 import androidx.camera.core.UseCase
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.ViewPort
 import androidx.camera.core.ZoomState
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
@@ -55,6 +63,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
 import com.google.common.util.concurrent.ListenableFuture
+import io.github.erenkng.vhscam.core.exposure.Exposure
+import io.github.erenkng.vhscam.core.exposure.ManualExposure
 import io.github.erenkng.vhscam.core.look.AspectSetting
 import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.gl.VhsCameraEffect
@@ -62,10 +72,6 @@ import io.github.erenkng.vhscam.gl.VhsSurfaceProcessor
 import io.github.erenkng.vhscam.settings.FlashSetting
 import io.github.erenkng.vhscam.settings.VideoQuality
 import io.github.erenkng.vhscam.settings.WhiteBalance
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executor
@@ -73,6 +79,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 data class ZoomInfo(val ratio: Float = 1f, val min: Float = 1f, val max: Float = 1f)
 
@@ -86,8 +96,15 @@ data class CameraCapabilities(
     val isFront: Boolean = false,
     /** Closest focus distance in diopters; 0 means the lens cannot be focused manually. */
     val minFocusDiopters: Float = 0f,
+    /** The phone can run the front and back cameras together (dual recording). */
+    val dualCamera: Boolean = false,
+    /** ISO the sensor can be set to, or null when the camera has no manual exposure. */
+    val isoRange: IntRange? = null,
+    /** Exposure times in nanoseconds the sensor can be set to. */
+    val exposureTimeRange: LongRange? = null,
 ) {
     val manualFocus: Boolean get() = minFocusDiopters > 0f
+    val manualExposure: Boolean get() = isoRange != null && exposureTimeRange != null
 }
 
 /** What to bind. A change of any field means a new camera session. */
@@ -150,14 +167,39 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
     }
     private val torchObserver = Observer<Int> { _torchOn.value = it == TorchState.ON }
 
-    private val preview: Preview = Preview.Builder()
-        .setResolutionSelector(
-            ResolutionSelector.Builder()
-                .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
-                .build(),
-        )
-        .build()
+    private val _meter = MutableStateFlow<Exposure?>(null)
+
+    /** What auto exposure is doing: a few readings a second from the preview's capture results. */
+    val meter: StateFlow<Exposure?> = _meter.asStateFlow()
+
+    private var lastMeterMillis = 0L
+    private val meterCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastMeterMillis < METER_INTERVAL_MILLIS) return
+            val iso = result.get(CaptureResult.SENSOR_SENSITIVITY) ?: return
+            val time = result.get(CaptureResult.SENSOR_EXPOSURE_TIME) ?: return
+            lastMeterMillis = now
+            _meter.value = Exposure(iso, time)
+        }
+    }
+
+    private val preview: Preview = buildPreview()
         .also { preview -> preview.setSurfaceProvider { request -> _surfaceRequest.value = request } }
+
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+    @Suppress("DEPRECATION")
+    private fun buildPreview(): Preview {
+        val builder = Preview.Builder()
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .build(),
+            )
+        // Stream sharing passes the preview's callbacks on, so this works while filming too.
+        Camera2Interop.Extender(builder).setSessionCaptureCallback(meterCallback)
+        return builder.build()
+    }
 
     val isRecording: Boolean get() = recording != null
 
@@ -167,6 +209,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
         val cameraProvider = provider ?: ProcessCameraProvider.awaitInstance(context).also { provider = it }
         val hasFront = hasCamera(cameraProvider, CameraSelector.DEFAULT_FRONT_CAMERA)
         val hasBack = hasCamera(cameraProvider, CameraSelector.DEFAULT_BACK_CAMERA)
+        val dualPair = dualCameraPair(cameraProvider)
         val front = if (request.front) hasFront else !hasBack
         val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
 
@@ -174,7 +217,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
         val useCases = mutableListOf<UseCase>(preview)
         val effect: CameraEffect
         when (request.mode) {
-            CaptureMode.PHOTO -> {
+            CaptureMode.PHOTO, CaptureMode.PRO -> {
                 val capture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .setFlashMode(request.flash.toCameraX())
@@ -193,7 +236,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
                 useCases += capture
                 effect = VhsCameraEffect(CameraEffect.PREVIEW, processor, onEffectError)
             }
-            CaptureMode.VIDEO -> {
+            CaptureMode.VIDEO, CaptureMode.DUAL -> {
                 val quality = request.videoQuality.toCameraX()
                 val recorder = Recorder.Builder()
                     .setQualitySelector(QualitySelector.from(quality, FallbackStrategy.lowerQualityOrHigherThan(quality)))
@@ -213,7 +256,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
         }
 
         // Portrait view port so every output shares one crop (what you see is what you get).
-        val portraitAspect = if (request.mode == CaptureMode.VIDEO && request.videoAspect == AspectSetting.RATIO_16_9) {
+        val portraitAspect = if (request.mode.films && request.videoAspect == AspectSetting.RATIO_16_9) {
             Rational(9, 16)
         } else {
             Rational(3, 4)
@@ -223,14 +266,46 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
             .build()
 
         cameraProvider.unbindAll()
-        val bound = cameraProvider.bindToLifecycle(
-            owner,
-            selector,
-            SessionConfig(useCases = useCases, viewPort = viewPort, effects = listOf(effect)),
-        )
-        attach(bound, owner, front, hasFront)
+        if (request.mode == CaptureMode.DUAL && dualPair != null) {
+            // Both cameras share one preview and one video capture: CameraX composites them,
+            // picture in picture, and then runs our effect on the result, so the tape look
+            // covers both pictures like a video mixer feeding a VCR.
+            val (back, frontInfo) = dualPair
+            val (main, inset) = if (front) frontInfo to back else back to frontInfo
+            val group = UseCaseGroup.Builder()
+                .apply { useCases.forEach { addUseCase(it) } }
+                .setViewPort(viewPort)
+                .addEffect(effect)
+                .build()
+            val concurrent = cameraProvider.bindToLifecycle(
+                listOf(
+                    ConcurrentCamera.SingleCameraConfig(main.cameraSelector, group, CompositionSettings.DEFAULT, owner),
+                    ConcurrentCamera.SingleCameraConfig(inset.cameraSelector, group, PICTURE_IN_PICTURE, owner),
+                ),
+            )
+            attach(concurrent.cameras.first(), owner, front, hasFront, dualCamera = true)
+        } else {
+            val bound = cameraProvider.bindToLifecycle(
+                owner,
+                selector,
+                SessionConfig(useCases = useCases, viewPort = viewPort, effects = listOf(effect)),
+            )
+            attach(bound, owner, front, hasFront, dualCamera = dualPair != null)
+        }
         return _capabilities.value
     }
+
+    /** A back and a front camera that can stream at the same time, if the phone has them. */
+    private fun dualCameraPair(provider: ProcessCameraProvider): Pair<CameraInfo, CameraInfo>? =
+        try {
+            provider.availableConcurrentCameraInfos.firstNotNullOfOrNull { infos ->
+                val back = infos.firstOrNull { it.lensFacing == CameraSelector.LENS_FACING_BACK }
+                val front = infos.firstOrNull { it.lensFacing == CameraSelector.LENS_FACING_FRONT }
+                if (back != null && front != null) back to front else null
+            }
+        } catch (e: Exception) {
+            null
+        }
 
     private fun hasCamera(provider: ProcessCameraProvider, selector: CameraSelector): Boolean =
         try {
@@ -239,7 +314,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
             false
         }
 
-    private fun attach(bound: Camera, owner: LifecycleOwner, front: Boolean, hasFront: Boolean) {
+    private fun attach(bound: Camera, owner: LifecycleOwner, front: Boolean, hasFront: Boolean, dualCamera: Boolean) {
         observedInfo?.let {
             it.zoomState.removeObserver(zoomObserver)
             it.torchState.removeObserver(torchObserver)
@@ -250,11 +325,15 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
         info.torchState.observe(owner, torchObserver)
         observedInfo = info
         _exposure.value = info.exposureState.toInfo()
+        val (isoRange, exposureRange) = manualExposureRanges(info)
         _capabilities.value = CameraCapabilities(
             hasFlash = info.hasFlashUnit(),
             hasFrontCamera = hasFront,
             isFront = front,
             minFocusDiopters = minFocusDiopters(info),
+            dualCamera = dualCamera,
+            isoRange = isoRange,
+            exposureTimeRange = exposureRange,
         )
     }
 
@@ -334,17 +413,59 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
     }
 
     /** Manual focus distance in diopters (null = autofocus) and a white-balance preset. */
+    /**
+     * Applies manual focus, white balance and, in Pro mode, ISO and shutter time. When only one
+     * of [iso] and [exposureNanos] is set, the other keeps the brightness auto exposure chose.
+     */
     @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
-    fun setManualControls(focusDiopters: Float?, whiteBalance: WhiteBalance) {
+    fun setManualControls(
+        focusDiopters: Float?,
+        whiteBalance: WhiteBalance,
+        iso: Int? = null,
+        exposureNanos: Long? = null,
+    ) {
         val control = camera?.cameraControl ?: return
+        val caps = _capabilities.value
         val options = CaptureRequestOptions.Builder().apply {
             if (focusDiopters != null) {
                 setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_OFF)
                 setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, focusDiopters)
             }
             whiteBalance.awbMode()?.let { setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, it) }
+            val isoRange = caps.isoRange
+            val timeRange = caps.exposureTimeRange
+            if ((iso != null || exposureNanos != null) && isoRange != null && timeRange != null) {
+                val exposure = ManualExposure.complete(iso, exposureNanos, frozenMeter ?: _meter.value, isoRange, timeRange)
+                // Keep the reading auto exposure made before going manual: once it is off, the
+                // capture results only echo the manual values back.
+                if (frozenMeter == null) frozenMeter = _meter.value
+                setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CameraMetadata.CONTROL_AE_MODE_OFF)
+                setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, exposure.iso)
+                setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, exposure.timeNanos)
+                setCaptureRequestOption(
+                    CaptureRequest.SENSOR_FRAME_DURATION,
+                    maxOf(exposure.timeNanos, ManualExposure.NANOS_PER_SECOND / 30),
+                )
+            } else {
+                frozenMeter = null
+            }
         }.build()
         Camera2CameraControl.from(control).setCaptureRequestOptions(options)
+    }
+
+    /** Auto exposure's last reading from before manual exposure took over. */
+    private var frozenMeter: Exposure? = null
+
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+    private fun manualExposureRanges(info: CameraInfo): Pair<IntRange?, LongRange?> = try {
+        val camera2 = Camera2CameraInfo.from(info)
+        val manual = camera2.getCameraCharacteristic(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+            ?.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR) == true
+        val iso = camera2.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+        val time = camera2.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+        if (manual && iso != null && time != null) iso.lower..iso.upper to time.lower..time.upper else null to null
+    } catch (e: IllegalArgumentException) {
+        null to null
     }
 
     @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
@@ -419,6 +540,14 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
 
     companion object {
         private val PHOTO_SIZE = Size(2560, 1920)
+        private const val METER_INTERVAL_MILLIS = 200L
+
+        /** Where the second camera goes in dual mode: a small inset near a corner. */
+        private val PICTURE_IN_PICTURE: CompositionSettings = CompositionSettings.Builder()
+            .setAlpha(1f)
+            .setOffset(0.55f, 0.55f)
+            .setScale(0.36f, 0.36f)
+            .build()
 
         private fun FlashSetting.toCameraX(): Int = when (this) {
             FlashSetting.OFF -> ImageCapture.FLASH_MODE_OFF

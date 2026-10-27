@@ -12,7 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.erenkng.vhscam.core.look.AspectSetting
 import io.github.erenkng.vhscam.core.look.CaptureMode
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.look.VhsAdjustments
 import io.github.erenkng.vhscam.core.osd.ClockStyle
@@ -37,6 +37,18 @@ class SettingsRepository(context: Context) {
         val mode = stringPreferencesKey("mode")
         val frontCamera = booleanPreferencesKey("front_camera")
         val photoLook = stringPreferencesKey("photo_look")
+        val videoLook = stringPreferencesKey("video_look")
+        val gameBoyIntensity = floatPreferencesKey("gameboy_intensity")
+        val webcamIntensity = floatPreferencesKey("webcam_intensity")
+        val cctvIntensity = floatPreferencesKey("cctv_intensity")
+        val effect = stringPreferencesKey("effect")
+        val fade = booleanPreferencesKey("fade")
+        val fadeColor = stringPreferencesKey("fade_color")
+        val blueIntro = booleanPreferencesKey("blue_intro")
+        val interval = stringPreferencesKey("interval")
+        val booth = booleanPreferencesKey("booth")
+        val keepOriginals = booleanPreferencesKey("keep_originals")
+        val onboardingDone = booleanPreferencesKey("onboarding_done")
         val tapeSpeed = stringPreferencesKey("tape_speed")
         val wear = floatPreferencesKey("vhs_wear")
         val colorBleed = floatPreferencesKey("vhs_color_bleed")
@@ -80,6 +92,18 @@ class SettingsRepository(context: Context) {
             mode = enum(Keys.mode, d.mode),
             frontCamera = this[Keys.frontCamera] ?: d.frontCamera,
             photoLook = enum(Keys.photoLook, d.photoLook),
+            videoLook = enum(Keys.videoLook, d.videoLook).takeIf { it.video } ?: d.videoLook,
+            gameBoyIntensity = this[Keys.gameBoyIntensity] ?: d.gameBoyIntensity,
+            webcamIntensity = this[Keys.webcamIntensity] ?: d.webcamIntensity,
+            cctvIntensity = this[Keys.cctvIntensity] ?: d.cctvIntensity,
+            effect = enum(Keys.effect, d.effect),
+            fade = this[Keys.fade] ?: d.fade,
+            fadeColor = enum(Keys.fadeColor, d.fadeColor),
+            blueIntro = this[Keys.blueIntro] ?: d.blueIntro,
+            interval = enum(Keys.interval, d.interval),
+            booth = this[Keys.booth] ?: d.booth,
+            keepOriginals = this[Keys.keepOriginals] ?: d.keepOriginals,
+            onboardingDone = this[Keys.onboardingDone] ?: d.onboardingDone,
             tapeSpeed = enum(Keys.tapeSpeed, d.tapeSpeed),
             vhs = VhsAdjustments(
                 wear = this[Keys.wear] ?: dv.wear,
@@ -120,6 +144,18 @@ class SettingsRepository(context: Context) {
         this[Keys.mode] = s.mode.name
         this[Keys.frontCamera] = s.frontCamera
         this[Keys.photoLook] = s.photoLook.name
+        this[Keys.videoLook] = s.videoLook.name
+        this[Keys.gameBoyIntensity] = s.gameBoyIntensity
+        this[Keys.webcamIntensity] = s.webcamIntensity
+        this[Keys.cctvIntensity] = s.cctvIntensity
+        this[Keys.effect] = s.effect.name
+        this[Keys.fade] = s.fade
+        this[Keys.fadeColor] = s.fadeColor.name
+        this[Keys.blueIntro] = s.blueIntro
+        this[Keys.interval] = s.interval.name
+        this[Keys.booth] = s.booth
+        this[Keys.keepOriginals] = s.keepOriginals
+        this[Keys.onboardingDone] = s.onboardingDone
         this[Keys.tapeSpeed] = s.tapeSpeed.name
         this[Keys.wear] = s.vhs.wear
         this[Keys.colorBleed] = s.vhs.colorBleed

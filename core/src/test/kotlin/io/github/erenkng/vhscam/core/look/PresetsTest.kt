@@ -41,9 +41,30 @@ class PresetsTest {
     }
 
     @Test
+    fun newLooksScaleWithIntensity() {
+        assertEquals(0f, PhotoLookPresets.gameBoy(0f).edge)
+        assertEquals(1f, PhotoLookPresets.gameBoy(1f).dither)
+        assertEquals(GameBoyParams().contrast, PhotoLookPresets.gameBoy(0.5f).contrast)
+        assertEquals(0f, PhotoLookPresets.webcam(0f).noise)
+        assertTrue(PhotoLookPresets.webcam(1f).blockiness <= 1f)
+        assertEquals(1f, PhotoLookPresets.cctv(0f).contrast)
+        assertEquals(CctvParams(), PhotoLookPresets.cctv(0.5f))
+    }
+
+    @Test
+    fun videoLooksAreTheOnesThatRecord() {
+        assertEquals(listOf(Look.VHS, Look.GAMEBOY, Look.WEBCAM, Look.CCTV), Look.videoLooks)
+        assertTrue(Look.entries.filter { it.workLines == null }.none { it.video })
+        assertTrue(Look.CCTV.holdFrames > Look.WEBCAM.holdFrames)
+    }
+
+    @Test
     fun fileNamesUseCaptureTime() {
         val t = LocalDateTime.of(2026, 10, 26, 9, 5, 3)
         assertEquals("VHS_20261026_090503.mp4", FileNames.video(t))
-        assertEquals("FILM_20261026_090503.jpg", FileNames.photo(t, PhotoLook.FILM))
+        assertEquals("CCTV_20261026_090503.mp4", FileNames.video(t, Look.CCTV))
+        assertEquals("FILM_20261026_090503.jpg", FileNames.photo(t, Look.FILM))
+        assertEquals("BOOTH_20261026_090503.jpg", FileNames.strip(t))
+        assertEquals("GIF_20261026_090503.gif", FileNames.gif(t))
     }
 }

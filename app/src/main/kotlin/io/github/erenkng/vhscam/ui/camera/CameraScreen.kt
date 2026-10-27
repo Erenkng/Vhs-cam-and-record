@@ -3,42 +3,60 @@ package io.github.erenkng.vhscam.ui.camera
 import android.view.Display
 import android.view.Surface
 import androidx.camera.compose.CameraXViewfinder
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FloatingToolbarDefaults
-import androidx.compose.material3.HorizontalFloatingToolbar
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,13 +67,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -71,8 +94,9 @@ import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.VhsCamApp
 import io.github.erenkng.vhscam.camera.DeviceOrientation
 import io.github.erenkng.vhscam.core.look.AspectSetting
+import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.media.CapturedMedia
 import io.github.erenkng.vhscam.settings.AppSettings
@@ -80,10 +104,12 @@ import io.github.erenkng.vhscam.settings.FlashSetting
 import io.github.erenkng.vhscam.settings.TimerSetting
 import io.github.erenkng.vhscam.settings.WhiteBalance
 import io.github.erenkng.vhscam.ui.components.BusyPill
-import io.github.erenkng.vhscam.ui.components.ConnectedToggleGroup
 import io.github.erenkng.vhscam.ui.components.CountdownOverlay
+import io.github.erenkng.vhscam.ui.components.LookDial
 import io.github.erenkng.vhscam.ui.components.ProvideHaptics
 import io.github.erenkng.vhscam.ui.components.ShutterButton
+import io.github.erenkng.vhscam.ui.components.ThumbnailDial
+import io.github.erenkng.vhscam.ui.theme.CameraColors
 import io.github.erenkng.vhscam.ui.theme.VhsCamTheme
 import kotlinx.coroutines.launch
 
@@ -106,6 +132,9 @@ class CameraActions(
     val onOpenGallery: () -> Unit = {},
     val onOpenSettings: () -> Unit = {},
     val onMessageShown: () -> Unit = {},
+    val onEffect: (CamcorderEffect) -> Unit = {},
+    val onIso: (Int?) -> Unit = {},
+    val onShutterSpeed: (Long?) -> Unit = {},
 )
 
 @Composable
@@ -145,6 +174,9 @@ fun CameraScreen(onOpenGallery: () -> Unit, onOpenSettings: () -> Unit) {
             onOpenGallery = onOpenGallery,
             onOpenSettings = onOpenSettings,
             onMessageShown = viewModel::consumeMessage,
+            onEffect = viewModel::setEffect,
+            onIso = viewModel::setIso,
+            onShutterSpeed = viewModel::setShutter,
         )
     }
 
@@ -161,24 +193,44 @@ fun CameraContent(
     state: CameraUiState,
     actions: CameraActions,
     modifier: Modifier = Modifier,
+    effectRowOpen: Boolean = false,
+    proSetting: ProSetting? = null,
     viewfinder: @Composable (Modifier) -> Unit,
 ) {
-    // The camera UI is always dark, whatever the system theme says.
+    // The camera UI is always dark, whatever the system theme says, and draws straight on black:
+    // icons and text are white unless a component picks its own colours.
     VhsCamTheme(darkTheme = true, dynamicColor = state.settings.dynamicColor) {
-        ProvideHaptics(enabled = state.settings.haptics) {
-            CameraLayout(state, actions, modifier, viewfinder)
+        CompositionLocalProvider(LocalContentColor provides Color.White) {
+            ProvideHaptics(enabled = state.settings.haptics) {
+                CameraLayout(state, actions, modifier, effectRowOpen, proSetting, viewfinder)
+            }
         }
     }
 }
 
+/** Height of the row of icons above the viewfinder. */
+private val TopBarHeight = 56.dp
+
+/** Space between the top of the viewfinder and the camcorder effect buttons over it. */
+private val EffectRowGap = 10.dp
+
+/**
+ * Laid out like a phone's own camera: icons along the top, the picture edge to edge under
+ * them, and the looks, modes and shutter at the bottom (over the picture when it is tall).
+ */
 @Composable
 private fun CameraLayout(
     state: CameraUiState,
     actions: CameraActions,
     modifier: Modifier,
+    effectRowOpen: Boolean,
+    initialProSetting: ProSetting?,
     viewfinder: @Composable (Modifier) -> Unit,
 ) {
     var showEffects by rememberSaveable { mutableStateOf(false) }
+    var showEffectRow by rememberSaveable { mutableStateOf(effectRowOpen) }
+    var proSetting by rememberSaveable { mutableStateOf(initialProSetting) }
+    val effectRowVisible = showEffectRow && state.activeLook == Look.VHS
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val messageText = state.message?.let { stringResource(it.label()) }
@@ -198,6 +250,9 @@ private fun CameraLayout(
     )
     var lastBusy by remember { mutableStateOf(state.busy) }
     SideEffect { if (state.busy != null) lastBusy = state.busy }
+    val density = LocalDensity.current
+    var controlsHeight by remember { mutableStateOf(0.dp) }
+    var effectRowHeight by remember { mutableStateOf(0.dp) }
 
     Box(modifier.fillMaxSize().background(Color.Black)) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -205,20 +260,49 @@ private fun CameraLayout(
                 state = state,
                 actions = actions,
                 iconRotation = iconRotation,
+                effectRowOpen = effectRowVisible,
+                onToggleEffectRow = { showEffectRow = !showEffectRow },
                 onOpenEffects = { showEffects = true },
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth().height(TopBarHeight),
             )
             ViewfinderPanel(
                 state = state,
                 actions = actions,
                 viewfinder = viewfinder,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                coveredTop = if (effectRowHeight > 0.dp) EffectRowGap + effectRowHeight else 0.dp,
+                coveredBottom = controlsHeight,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
             )
-            BottomControls(state = state, actions = actions, iconRotation = iconRotation)
         }
+
+        // The camcorder's effect buttons float over the top of the picture.
+        AnimatedVisibility(
+            visible = effectRowVisible,
+            enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
+            exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .safeDrawingPadding()
+                .padding(top = TopBarHeight + EffectRowGap)
+                .onSizeChanged { effectRowHeight = with(density) { it.height.toDp() } },
+        ) {
+            EffectChips(selected = state.settings.effect, onSelect = actions.onEffect)
+        }
+
+        BottomControls(
+            state = state,
+            actions = actions,
+            iconRotation = iconRotation,
+            proSetting = proSetting,
+            onProSetting = { setting -> proSetting = if (proSetting == setting) null else setting },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                // Keeps the controls readable where they cover a tall picture.
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))))
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                .onSizeChanged { controlsHeight = with(density) { it.height.toDp() } },
+        )
 
         CountdownOverlay(seconds = state.countdown, modifier = Modifier.align(Alignment.Center))
 
@@ -226,7 +310,7 @@ private fun CameraLayout(
             visible = state.busy != null,
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut(),
-            modifier = Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 76.dp),
+            modifier = Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = TopBarHeight + 12.dp),
         ) {
             // Keeps showing the last job while the pill animates away.
             val busy = state.busy ?: lastBusy
@@ -240,7 +324,7 @@ private fun CameraLayout(
 
         SnackbarHost(
             hostState = snackbar,
-            modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = 220.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = controlsHeight + 8.dp),
         )
     }
 
@@ -254,27 +338,37 @@ private fun CameraMessage.label(): Int = when (this) {
     CameraMessage.CAPTURE_FAILED -> R.string.msg_capture_failed
     CameraMessage.RECORDING_FAILED -> R.string.msg_recording_failed
     CameraMessage.CAMERA_ERROR -> R.string.msg_camera_error
+    CameraMessage.DUAL_UNAVAILABLE -> R.string.msg_dual_unavailable
 }
 
+/** A flat row of icons, spread across the top like the phone's own camera. */
 @Composable
 private fun CameraTopBar(
     state: CameraUiState,
     actions: CameraActions,
     iconRotation: Float,
+    effectRowOpen: Boolean,
+    onToggleEffectRow: () -> Unit,
     onOpenEffects: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val settings = state.settings
-    val video = settings.mode == CaptureMode.VIDEO
-    HorizontalFloatingToolbar(
-        expanded = true,
-        modifier = modifier,
-        colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
-            toolbarContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
-        ),
+    val filming = state.isFilming
+    val look = state.activeLook
+    Row(
+        modifier = modifier.padding(horizontal = 6.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        ToolbarIcon(
+            icon = R.drawable.ic_settings,
+            description = stringResource(R.string.settings),
+            rotation = iconRotation,
+            onClick = actions.onOpenSettings,
+            enabled = !state.isRecording,
+        )
         if (state.capabilities.hasFlash) {
-            if (video) {
+            if (filming) {
                 ToolbarIcon(
                     icon = if (state.torchOn) R.drawable.ic_flashlight_on else R.drawable.ic_flashlight_off,
                     description = stringResource(if (state.torchOn) R.string.torch_on else R.string.torch_off),
@@ -282,15 +376,17 @@ private fun CameraTopBar(
                     onClick = actions.onTorch,
                 )
             } else {
+                // Under manual exposure the flash can't fire.
+                val flash = if (state.manualExposure) FlashSetting.OFF else settings.flash
                 val next = FlashSetting.entries[(settings.flash.ordinal + 1) % FlashSetting.entries.size]
                 ToolbarIcon(
-                    icon = when (settings.flash) {
+                    icon = when (flash) {
                         FlashSetting.OFF -> R.drawable.ic_flash_off
                         FlashSetting.AUTO -> R.drawable.ic_flash_auto
                         FlashSetting.ON -> R.drawable.ic_flash_on
                     },
                     description = stringResource(
-                        when (settings.flash) {
+                        when (flash) {
                             FlashSetting.OFF -> R.string.flash_off
                             FlashSetting.AUTO -> R.string.flash_auto
                             FlashSetting.ON -> R.string.flash_on
@@ -298,6 +394,7 @@ private fun CameraTopBar(
                     ),
                     rotation = iconRotation,
                     onClick = { actions.onFlash(next) },
+                    enabled = !state.manualExposure,
                 )
             }
         }
@@ -315,12 +412,14 @@ private fun CameraTopBar(
                 },
             ),
             rotation = iconRotation,
+            // The photobooth runs its own countdown.
+            enabled = filming || state.isPro || !settings.booth,
             onClick = {
                 val next = TimerSetting.entries[(settings.timer.ordinal + 1) % TimerSetting.entries.size]
                 actions.onSettingsChange { it.copy(timer = next) }
             },
         )
-        if (video || settings.photoLook == PhotoLook.VHS) {
+        if (filming || look == Look.VHS) {
             IconButton(
                 onClick = {
                     val next = if (settings.aspect == AspectSetting.RATIO_4_3) AspectSetting.RATIO_16_9 else AspectSetting.RATIO_4_3
@@ -336,24 +435,43 @@ private fun CameraTopBar(
                 )
             }
         }
-        ToolbarIcon(
-            icon = if (settings.grid) R.drawable.ic_grid_on else R.drawable.ic_grid_off,
-            description = stringResource(if (settings.grid) R.string.grid_on else R.string.grid_off),
-            rotation = iconRotation,
-            onClick = { actions.onSettingsChange { it.copy(grid = !it.grid) } },
-        )
+        if (filming) {
+            ToolbarToggle(
+                icon = R.drawable.ic_gradient,
+                description = stringResource(if (settings.fade) R.string.fade_on else R.string.fade_off),
+                checked = settings.fade,
+                rotation = iconRotation,
+                onCheckedChange = { on -> actions.onSettingsChange { it.copy(fade = on) } },
+            )
+        } else if (!state.isPro) {
+            ToolbarToggle(
+                icon = R.drawable.ic_view_agenda,
+                description = stringResource(if (settings.booth) R.string.booth_on else R.string.booth_off),
+                checked = settings.booth,
+                rotation = iconRotation,
+                onCheckedChange = { on -> actions.onSettingsChange { it.copy(booth = on) } },
+            )
+        }
+        if (look == Look.VHS) {
+            BadgedBox(
+                badge = {
+                    if (settings.effect != CamcorderEffect.NONE) Badge(containerColor = CameraColors.Record)
+                },
+            ) {
+                ToolbarToggle(
+                    icon = R.drawable.ic_auto_awesome,
+                    description = stringResource(R.string.effects_button),
+                    checked = effectRowOpen,
+                    rotation = iconRotation,
+                    onCheckedChange = { onToggleEffectRow() },
+                )
+            }
+        }
         ToolbarIcon(
             icon = R.drawable.ic_tune,
             description = stringResource(R.string.effects),
             rotation = iconRotation,
             onClick = onOpenEffects,
-        )
-        ToolbarIcon(
-            icon = R.drawable.ic_settings,
-            description = stringResource(R.string.settings),
-            rotation = iconRotation,
-            onClick = actions.onOpenSettings,
-            enabled = !state.isRecording,
         )
     }
 }
@@ -371,100 +489,174 @@ private fun ToolbarIcon(
     }
 }
 
+/** A toolbar switch: the icon sits in a filled pill while it is on. */
 @Composable
-private fun BottomControls(state: CameraUiState, actions: CameraActions, iconRotation: Float) {
-    val settings = state.settings
-    val video = settings.mode == CaptureMode.VIDEO
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+private fun ToolbarToggle(
+    icon: Int,
+    description: String,
+    checked: Boolean,
+    rotation: Float,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    FilledIconToggleButton(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        shapes = IconButtonDefaults.toggleableShapes(),
+        colors = IconButtonDefaults.filledIconToggleButtonColors(
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            checkedContainerColor = MaterialTheme.colorScheme.primary,
+            checkedContentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
     ) {
-        if (video) {
-            ConnectedToggleGroup(
-                options = TapeSpeed.entries,
-                selected = settings.tapeSpeed,
-                onSelect = { speed -> actions.onSettingsChange { it.copy(tapeSpeed = speed) } },
-                buttonSize = ToggleButtonSize.ExtraSmall,
-            ) { speed ->
-                Text(stringResource(speed.label()))
-            }
-        } else {
-            ConnectedToggleGroup(
-                options = PhotoLook.entries,
-                selected = settings.photoLook,
-                onSelect = { look -> actions.onSettingsChange { it.copy(photoLook = look) } },
-                buttonSize = ToggleButtonSize.ExtraSmall,
-            ) { look ->
-                Text(stringResource(look.label()))
-            }
-        }
+        Icon(painterResource(icon), contentDescription = description, modifier = Modifier.rotate(rotation))
+    }
+}
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GalleryButton(latest = state.latest, rotation = iconRotation, onClick = actions.onOpenGallery)
-            ShutterButton(
-                video = video,
-                recording = state.isRecording,
-                onClick = actions.onShutter,
-                contentDescription = stringResource(
-                    when {
-                        !video -> R.string.shutter_photo
-                        state.isRecording -> R.string.shutter_stop
-                        else -> R.string.shutter_record
-                    },
+/** The camcorder's digital effect button, as a row of chips. */
+@Composable
+private fun EffectChips(selected: CamcorderEffect, onSelect: (CamcorderEffect) -> Unit, modifier: Modifier = Modifier) {
+    val haptics = LocalHapticFeedback.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        CamcorderEffect.entries.forEach { effect ->
+            FilterChip(
+                selected = effect == selected,
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    onSelect(effect)
+                },
+                label = { Text(stringResource(effect.label())) },
+                leadingIcon = { Icon(painterResource(effect.icon()), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = Color.Black.copy(alpha = 0.55f),
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
             )
-            val active = state.recording as? RecordingUi.Active
-            if (active != null) {
-                FilledTonalIconButton(
-                    onClick = actions.onTogglePause,
-                    shapes = IconButtonDefaults.shapes(),
-                    modifier = Modifier.size(56.dp),
-                ) {
-                    Icon(
-                        painterResource(if (active.paused) R.drawable.ic_play_arrow else R.drawable.ic_pause),
-                        contentDescription = stringResource(if (active.paused) R.string.resume_recording else R.string.pause_recording),
-                        modifier = Modifier.rotate(iconRotation),
-                    )
-                }
+        }
+    }
+}
+
+@Composable
+private fun BottomControls(
+    state: CameraUiState,
+    actions: CameraActions,
+    iconRotation: Float,
+    proSetting: ProSetting?,
+    onProSetting: (ProSetting) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val motion = MaterialTheme.motionScheme
+    Column(
+        modifier = modifier.padding(top = 12.dp, bottom = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Looks to pick from, or Pro mode's manual controls.
+        AnimatedContent(
+            targetState = state.isPro,
+            transitionSpec = {
+                (fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
+                    .using(SizeTransform(clip = false))
+            },
+            label = "lookOrPro",
+        ) { pro ->
+            if (pro) {
+                ProPanel(state, actions, open = proSetting, onOpen = onProSetting)
             } else {
-                FilledTonalIconButton(
-                    onClick = actions.onFlip,
-                    shapes = IconButtonDefaults.shapes(),
-                    modifier = Modifier.size(56.dp),
-                    enabled = state.capabilities.hasFrontCamera,
-                ) {
-                    val flipRotation by animateFloatAsState(
-                        targetValue = if (settings.frontCamera) 180f else 0f,
-                        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec(),
-                        label = "flip",
-                    )
-                    Icon(
-                        painterResource(R.drawable.ic_cameraswitch),
-                        contentDescription = stringResource(R.string.flip_camera),
-                        modifier = Modifier.rotate(flipRotation + iconRotation),
+                // Photos and videos offer different looks, so each gets its own dial.
+                key(state.isFilming) {
+                    ThumbnailDial(
+                        options = if (state.isFilming) Look.videoLooks else Look.entries,
+                        selected = state.activeLook,
+                        onSelect = { look ->
+                            actions.onSettingsChange { if (state.isFilming) it.copy(videoLook = look) else it.copy(photoLook = look) }
+                        },
+                        image = { it.sample() },
+                        label = { stringResource(it.label()) },
+                        enabled = !state.isRecording && state.booth == null,
                     )
                 }
             }
         }
 
-        ConnectedToggleGroup(
-            options = CaptureMode.entries,
-            selected = settings.mode,
+        val modes = buildList {
+            add(CaptureMode.PRO)
+            add(CaptureMode.PHOTO)
+            add(CaptureMode.VIDEO)
+            if (state.capabilities.dualCamera) add(CaptureMode.DUAL)
+        }
+        LookDial(
+            options = modes,
+            selected = state.settings.mode,
             onSelect = actions.onModeChange,
-            enabled = !state.isRecording,
-            icon = { mode ->
+            label = { stringResource(it.label()) },
+            enabled = !state.isRecording && state.booth == null,
+        )
+
+        ShutterRow(state, actions, iconRotation)
+    }
+}
+
+@Composable
+private fun ShutterRow(state: CameraUiState, actions: CameraActions, iconRotation: Float) {
+    val filming = state.isFilming
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GalleryButton(latest = state.latest, rotation = iconRotation, onClick = actions.onOpenGallery)
+        ShutterButton(
+            video = filming,
+            recording = state.isRecording,
+            onClick = actions.onShutter,
+            contentDescription = stringResource(
+                when {
+                    !filming -> R.string.shutter_photo
+                    state.isRecording -> R.string.shutter_stop
+                    else -> R.string.shutter_record
+                },
+            ),
+        )
+        val active = state.recording as? RecordingUi.Active
+        if (active != null) {
+            FilledTonalIconButton(
+                onClick = actions.onTogglePause,
+                shapes = IconButtonDefaults.shapes(),
+                modifier = Modifier.size(56.dp),
+                // Interval recording pauses and resumes by itself.
+                enabled = state.interval == null,
+            ) {
                 Icon(
-                    painterResource(if (mode == CaptureMode.PHOTO) R.drawable.ic_photo_camera else R.drawable.ic_videocam),
-                    contentDescription = null,
+                    painterResource(if (active.paused) R.drawable.ic_play_arrow else R.drawable.ic_pause),
+                    contentDescription = stringResource(if (active.paused) R.string.resume_recording else R.string.pause_recording),
+                    modifier = Modifier.rotate(iconRotation),
                 )
-            },
-        ) { mode ->
-            Text(stringResource(if (mode == CaptureMode.PHOTO) R.string.mode_photo else R.string.mode_video))
+            }
+        } else {
+            FilledTonalIconButton(
+                onClick = actions.onFlip,
+                shapes = IconButtonDefaults.shapes(),
+                modifier = Modifier.size(56.dp),
+                enabled = state.capabilities.hasFrontCamera,
+            ) {
+                val flipRotation by animateFloatAsState(
+                    targetValue = if (state.settings.frontCamera) 180f else 0f,
+                    animationSpec = MaterialTheme.motionScheme.slowSpatialSpec(),
+                    label = "flip",
+                )
+                Icon(
+                    painterResource(R.drawable.ic_cameraswitch),
+                    contentDescription = stringResource(R.string.flip_camera),
+                    modifier = Modifier.rotate(flipRotation + iconRotation),
+                )
+            }
         }
     }
 }
@@ -532,9 +724,50 @@ fun TapeSpeed.label(): Int = when (this) {
     TapeSpeed.EP -> R.string.speed_ep
 }
 
-fun PhotoLook.label(): Int = when (this) {
-    PhotoLook.VHS -> R.string.look_vhs
-    PhotoLook.CCD -> R.string.look_ccd
-    PhotoLook.FILM -> R.string.look_film
-    PhotoLook.POLAROID -> R.string.look_polaroid
+fun CaptureMode.label(): Int = when (this) {
+    CaptureMode.PRO -> R.string.mode_pro
+    CaptureMode.PHOTO -> R.string.mode_photo
+    CaptureMode.VIDEO -> R.string.mode_video
+    CaptureMode.DUAL -> R.string.mode_dual
+}
+
+/** The beach from the onboarding, developed with the look: what the look does, at a glance. */
+fun Look.sample(): Int = when (this) {
+    Look.VHS -> R.drawable.onboarding_vhs
+    Look.CCD -> R.drawable.onboarding_ccd
+    Look.FILM -> R.drawable.onboarding_film
+    Look.POLAROID -> R.drawable.onboarding_instant
+    Look.GAMEBOY -> R.drawable.onboarding_gameboy
+    Look.WEBCAM -> R.drawable.onboarding_webcam
+    Look.CCTV -> R.drawable.onboarding_cctv
+}
+
+fun Look.label(): Int = when (this) {
+    Look.VHS -> R.string.look_vhs
+    Look.CCD -> R.string.look_ccd
+    Look.FILM -> R.string.look_film
+    Look.POLAROID -> R.string.look_polaroid
+    Look.GAMEBOY -> R.string.look_gameboy
+    Look.WEBCAM -> R.string.look_webcam
+    Look.CCTV -> R.string.look_cctv
+}
+
+fun CamcorderEffect.label(): Int = when (this) {
+    CamcorderEffect.NONE -> R.string.effect_none
+    CamcorderEffect.NIGHT_VISION -> R.string.effect_night
+    CamcorderEffect.SEPIA -> R.string.effect_sepia
+    CamcorderEffect.MONO -> R.string.effect_mono
+    CamcorderEffect.MOSAIC -> R.string.effect_mosaic
+    CamcorderEffect.STROBE -> R.string.effect_strobe
+    CamcorderEffect.TRAIL -> R.string.effect_trail
+}
+
+private fun CamcorderEffect.icon(): Int = when (this) {
+    CamcorderEffect.NONE -> R.drawable.ic_block
+    CamcorderEffect.NIGHT_VISION -> R.drawable.ic_nightlight
+    CamcorderEffect.SEPIA -> R.drawable.ic_filter_vintage
+    CamcorderEffect.MONO -> R.drawable.ic_filter_b_and_w
+    CamcorderEffect.MOSAIC -> R.drawable.ic_auto_awesome_mosaic
+    CamcorderEffect.STROBE -> R.drawable.ic_shutter_speed
+    CamcorderEffect.TRAIL -> R.drawable.ic_motion_blur
 }

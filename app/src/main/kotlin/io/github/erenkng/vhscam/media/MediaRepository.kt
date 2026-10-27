@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 
-/** A photo or video this app saved. */
+/** A photo, GIF or video this app saved. */
 data class CapturedMedia(
     val uri: Uri,
     val isVideo: Boolean,
@@ -23,7 +23,10 @@ data class CapturedMedia(
     val durationMillis: Long,
     val width: Int,
     val height: Int,
-)
+    val mimeType: String = if (isVideo) "video/mp4" else "image/jpeg",
+) {
+    val isGif: Boolean get() = mimeType == "image/gif"
+}
 
 /**
  * Saves to and reads from DCIM/VHS Cam through MediaStore. On Android 10+ an app can see and
@@ -47,15 +50,20 @@ class MediaRepository(private val context: Context) {
         _version.value++
     }
 
-    suspend fun savePhoto(jpeg: File, displayName: String, takenAtMillis: Long): Uri = withContext(Dispatchers.IO) {
+    suspend fun savePhoto(
+        image: File,
+        displayName: String,
+        takenAtMillis: Long,
+        mimeType: String = "image/jpeg",
+    ): Uri = withContext(Dispatchers.IO) {
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
             put(MediaStore.MediaColumns.RELATIVE_PATH, RELATIVE_PATH)
             put(MediaStore.MediaColumns.DATE_TAKEN, takenAtMillis)
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
-        insertFromFile(IMAGES, values, jpeg)
+        insertFromFile(IMAGES, values, image)
     }
 
     /** Copies a finished video (e.g. after tape-audio processing) into the gallery. */
@@ -135,6 +143,7 @@ class MediaRepository(private val context: Context) {
             add(MediaStore.MediaColumns.DATE_TAKEN)
             add(MediaStore.MediaColumns.WIDTH)
             add(MediaStore.MediaColumns.HEIGHT)
+            add(MediaStore.MediaColumns.MIME_TYPE)
             if (isVideo) add(MediaStore.MediaColumns.DURATION)
         }.toTypedArray()
         val selection: String
@@ -154,6 +163,7 @@ class MediaRepository(private val context: Context) {
             val taken = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_TAKEN)
             val width = c.getColumnIndexOrThrow(MediaStore.MediaColumns.WIDTH)
             val height = c.getColumnIndexOrThrow(MediaStore.MediaColumns.HEIGHT)
+            val mime = c.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
             val duration = if (isVideo) c.getColumnIndexOrThrow(MediaStore.MediaColumns.DURATION) else -1
             buildList {
                 while (c.moveToNext()) {
@@ -166,6 +176,7 @@ class MediaRepository(private val context: Context) {
                             durationMillis = if (duration >= 0) c.getLong(duration) else 0L,
                             width = c.getInt(width),
                             height = c.getInt(height),
+                            mimeType = c.getString(mime) ?: if (isVideo) "video/mp4" else "image/jpeg",
                         ),
                     )
                 }

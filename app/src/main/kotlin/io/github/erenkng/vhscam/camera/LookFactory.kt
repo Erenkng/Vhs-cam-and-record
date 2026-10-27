@@ -1,7 +1,6 @@
 package io.github.erenkng.vhscam.camera
 
-import io.github.erenkng.vhscam.core.look.CaptureMode
-import io.github.erenkng.vhscam.core.look.PhotoLook
+import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.PhotoLookPresets
 import io.github.erenkng.vhscam.core.look.VhsPresets
 import io.github.erenkng.vhscam.core.osd.CamcorderClock
@@ -15,28 +14,58 @@ import java.time.ZoneId
 /** Builds what the renderer needs from the user's settings. */
 object LookFactory {
 
-    /** The look in use: video is always VHS, photos use the chosen look. */
-    fun activeLook(settings: AppSettings): PhotoLook =
-        if (settings.mode == CaptureMode.VIDEO) PhotoLook.VHS else settings.photoLook
+    /** The look in use: the photo look for photos (Pro too), the video look when filming. */
+    fun activeLook(settings: AppSettings): Look =
+        if (settings.mode.takesPhotos) settings.photoLook else settings.videoLook.takeIf { it.video } ?: Look.VHS
 
-    fun spec(settings: AppSettings, look: PhotoLook, seed: Float): LookSpec = when (look) {
-        PhotoLook.VHS -> LookSpec.Vhs(VhsPresets.params(settings.tapeSpeed, settings.vhs), settings.tapeSpeed)
-        PhotoLook.CCD -> LookSpec.Ccd(PhotoLookPresets.ccd(settings.ccdIntensity))
-        PhotoLook.FILM -> LookSpec.Film(PhotoLookPresets.film(settings.filmIntensity), seed)
-        PhotoLook.POLAROID -> LookSpec.Polaroid(PhotoLookPresets.polaroid(settings.polaroidIntensity), seed)
+    fun spec(settings: AppSettings, look: Look, seed: Float): LookSpec = when (look) {
+        Look.VHS -> LookSpec.Vhs(
+            params = VhsPresets.params(settings.tapeSpeed, settings.vhs),
+            speed = settings.tapeSpeed,
+            effect = settings.effect,
+        )
+        Look.CCD -> LookSpec.Ccd(PhotoLookPresets.ccd(settings.ccdIntensity))
+        Look.FILM -> LookSpec.Film(PhotoLookPresets.film(settings.filmIntensity), seed)
+        Look.POLAROID -> LookSpec.Polaroid(PhotoLookPresets.polaroid(settings.polaroidIntensity), seed)
+        Look.GAMEBOY -> LookSpec.GameBoy(PhotoLookPresets.gameBoy(settings.gameBoyIntensity))
+        Look.WEBCAM -> LookSpec.Webcam(PhotoLookPresets.webcam(settings.webcamIntensity))
+        Look.CCTV -> LookSpec.Cctv(PhotoLookPresets.cctv(settings.cctvIntensity))
+    }
+
+    /** Intensity slider value of a look; VHS uses tape wear instead. */
+    fun intensity(settings: AppSettings, look: Look): Float = when (look) {
+        Look.VHS -> settings.vhs.wear
+        Look.CCD -> settings.ccdIntensity
+        Look.FILM -> settings.filmIntensity
+        Look.POLAROID -> settings.polaroidIntensity
+        Look.GAMEBOY -> settings.gameBoyIntensity
+        Look.WEBCAM -> settings.webcamIntensity
+        Look.CCTV -> settings.cctvIntensity
+    }
+
+    fun withIntensity(settings: AppSettings, look: Look, value: Float): AppSettings = when (look) {
+        Look.VHS -> settings.copy(vhs = settings.vhs.copy(wear = value))
+        Look.CCD -> settings.copy(ccdIntensity = value)
+        Look.FILM -> settings.copy(filmIntensity = value)
+        Look.POLAROID -> settings.copy(polaroidIntensity = value)
+        Look.GAMEBOY -> settings.copy(gameBoyIntensity = value)
+        Look.WEBCAM -> settings.copy(webcamIntensity = value)
+        Look.CCTV -> settings.copy(cctvIntensity = value)
     }
 
     /** Landscape aspect of the photo look's crop. Video crops through the camera view port. */
     fun lookAspect(settings: AppSettings): Float? =
-        if (settings.mode == CaptureMode.VIDEO) null else settings.photoLook.cropAspect ?: settings.aspect.ratio
+        if (settings.mode.takesPhotos) photoAspect(settings, settings.photoLook) else null
+
+    fun photoAspect(settings: AppSettings, look: Look): Float = look.cropAspect ?: settings.aspect.ratio
 
     /** The camcorder clock: the real time or the date the user set it to. */
     fun clockTime(settings: AppSettings, nowMillis: Long = System.currentTimeMillis()): LocalDateTime =
         CamcorderClock(settings.clockOffsetMillis ?: 0L).now(nowMillis, ZoneId.systemDefault())
 
-    fun osd(settings: AppSettings, look: PhotoLook, time: LocalDateTime, counterMillis: Long): OsdContent =
+    fun osd(settings: AppSettings, look: Look, time: LocalDateTime, counterMillis: Long): OsdContent =
         when (look) {
-            PhotoLook.VHS -> OsdContent(
+            Look.VHS -> OsdContent(
                 camcorderTime = if (settings.dateStamp && settings.timeStamp) {
                     DateStamp.vhsTime(time, settings.clockStyle)
                 } else {
@@ -47,12 +76,16 @@ object LookFactory {
                 speedLabel = settings.tapeSpeed.name,
                 counter = if (settings.counterOsd) DateStamp.tapeCounter(counterMillis) else null,
             )
-            PhotoLook.CCD -> OsdContent(
+            Look.CCD -> OsdContent(
                 digitalStamp = if (settings.dateStamp) DateStamp.ccdDate(time, settings.dateOrder) else null,
             )
-            PhotoLook.FILM -> OsdContent(
+            Look.FILM -> OsdContent(
                 filmStamp = if (settings.dateStamp) DateStamp.filmDate(time, settings.dateOrder) else null,
             )
-            PhotoLook.POLAROID -> OsdContent()
+            // A security camera always stamps the time; the toggle only hides it.
+            Look.CCTV -> OsdContent(
+                cctvStamp = if (settings.dateStamp) DateStamp.cctvStamp(time, settings.dateOrder) else null,
+            )
+            Look.POLAROID, Look.GAMEBOY, Look.WEBCAM -> OsdContent()
         }
 }

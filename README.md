@@ -6,37 +6,44 @@ Material 3 Expressive (M3E) arayüzlü bir Android kamera uygulaması. Arayüz m
 
 ## Özellikler
 
-**VHS video**
-- Görüntü canlı olarak işlenir; vizörde gördüğünüz, kaydedilenle aynıdır.
-- VHS etkileri: renk taşması ve kayması, yumuşak parlaklık ve keskinleştirme halesi, satır titremesi, alttaki kafa geçiş bandı, kayan tracking bantları, dropout ve kar.
-- Bant hızı **SP / LP / EP** (EP en yıpranmışı) ve "Bant yıpranması" ayarı. "İnce ayar" bölümünde her etki ayrı ayrı ayarlanabilir.
-- Camcorder tarih ve saat damgası görüntüye işlenir. Tarih biçimi ve 12/24 saat seçilebilir; "Kamera saati" ile istediğiniz bir tarihe (ör. 1997) ayarlanabilir.
-- İsteğe bağlı **PLAY ▶** yazısı ve bant sayacı.
-- Kayıt duraklatılıp sürdürülebilir; kayıt başlarken ve devam ederken kısa bir "kaset kesme" bozulması oluşur.
-- **Kaset sesi:** Kayıttan sonra sese wow, flutter, hışırtı ve dar bant genişliği eklenir. Ayarlardan kapatılabilir.
-- 4:3 veya 16:9 oran; SD, HD veya Full HD kayıt.
+**Stiller (looks)**
+- **VHS:** Görüntü canlı işlenir; vizörde gördüğünüz kaydedilenle aynıdır. Renk taşması, satır titremesi, kafa geçiş bandı, tracking bantları, dropout ve kar; bant hızı **SP / LP / EP**, "Bant yıpranması" ve her etki için ince ayar. Camcorder tarih/saat damgası, **PLAY ▶** yazısı ve bant sayacı.
+- **Dijital (CCD):** 2000'lerin başındaki dijital kameralar: doygun renkler, mor saçak, gerçek düşük kaliteli JPEG ve amber dijital tarih.
+- **35mm:** 3:2, film greni, halation, ışık sızıntısı ve turuncu tarih.
+- **Polaroid:** Kare kadraj, soluk renkler, kimyasal düzensizlik ve beyaz çerçeve.
+- **8-bit:** 128×112 piksel, dört yeşil ton, Bayer titreşimi (dithering) ve el konsolu kamerasının çerçevesi.
+- **2005 webcam:** QVGA, baş edemeyen otomatik pozlama, mavi ton, blok blok sıkıştırma; 15 fps.
+- **CCTV:** Siyah-beyaz, geniş açı bozulması, kayan şebeke bandı, "CAM 01" ve saniyeli zaman damgası; 5 fps.
+- VHS, 8-bit, webcam ve CCTV video da çeker; hepsi fotoğraf çeker. Her stilin yoğunluk ayarı vardır.
 
-**Fotoğraf stilleri**
-- **VHS:** Videodaki kare, 4:3 ya da 16:9.
-- **Dijital (CCD):** 2000'lerin başındaki dijital kameralar. Doygun renkler, patlayan parlak alanlar, mor saçak, gerçek düşük kaliteli JPEG sıkıştırması ve amber renkli dijital tarih.
-- **35mm:** 3:2 oran, film greni, halation, solmuş siyahlar, her karede farklı ışık sızıntısı ve turuncu yedi segmentli tarih.
-- **Polaroid:** Kare kadraj, soluk ve yumuşak renkler, kimyasal düzensizlik ve beyaz çerçeve.
-- Her stilin bir yoğunluk ayarı vardır. Ön kamerada "Selfie'leri aynala" seçeneği bulunur.
+**Camcorder düğmeleri (VHS)**
+- **Efekt tuşu:** Gece görüşü (NightShot), sepya, siyah-beyaz, mozaik, strobe ve hareket izi.
+- **Dijital zoom:** Lensin bittiği yerden 10 kata kadar; büyüdükçe bloklaşır. Vizörde W–T çubuğu ve **D.ZOOM** görünür.
+- **Fader:** Kayıt başlarken ve sürerken açılır, dururken ve duraklarken kararır; siyaha ya da beyaza.
+- **VCR mavi ekranı:** Kasetler bir saniyelik mavi ekranla başlar; kamera görüntüsü gelene kadar vizörde "NO SIGNAL" yazar.
+- **Aralıklı çekim:** 10 sn, 30 sn ya da 1 dakikada bir saniyelik kayıt.
+- Kayıt duraklatılıp sürdürülebilir; **kaset sesi** sese wow, flutter ve hışırtı ekler. 4:3 veya 16:9; SD, HD ya da Full HD.
+
+**Modlar**
+- **Pro:** ISO, enstantane hızı, pozlama telafisi (EV), netleme mesafesi ve beyaz dengesi cetvel kadranlarıyla elle ayarlanır; otomatikte kalan ayarlar kameranın seçtiği değeri gösterir. Yalnızca ISO ya da yalnızca enstantane seçilirse diğeri parlaklığı koruyacak şekilde hesaplanır.
+- **Fotoğraf** ve **Video**; destekleyen telefonlarda **Çift çekim:** ön ve arka kamera aynı anda, resim içinde resim.
+- **Fotokabin:** Geri sayımla dört kare, tarihli tek bir fotoğraf şeridinde.
+
+**Sonrası**
+- **Retro GIF:** Kasetin izlediğiniz yerinden 3 saniyelik, web-safe paletli bir GIF.
+- **Sonradan stil değiştirme:** Fotoğrafın orijinali saklanır; istediğiniz stil ve yoğunlukla yeni bir fotoğraf olarak yeniden banyo edilir. Ayarlardan kapatılabilir ve saklanan orijinaller silinebilir.
+- **Kasetler** galerisi: görüntüleyici, yakınlaştırma, video oynatma, paylaşma ve silme.
 
 **Kamera kontrolleri**
-- Dokunarak netleme ve ölçüm; uzun basınca **AE/AF KİLİT**.
-- Pozlama (EV) slider'ı.
-- İki parmakla zoom ve hazır zoom düğmeleri (0.5×, 1×, 2×, 5×; cihaz destekliyorsa).
-- **Pro:** Manuel netleme (kullanılırken netlik kenarları pembe vurgulanır, buna focus peaking denir; kayda girmez) ve beyaz dengesi hazır ayarları.
-- Fotoğrafta flaş (kapalı, otomatik, açık), videoda fener.
-- 3 ve 10 saniyelik zamanlayıcı, ızgara, ön/arka kamera.
-- Ses tuşlarıyla ya da kamera tuşuyla çekim.
+- Dokunarak netleme ve ölçüm, uzun basınca **AE/AF KİLİT**; pozlama slider'ı; iki parmakla ve hazır düğmelerle zoom.
+- Manuel netlemede netlik kenarları pembe vurgulanır (focus peaking; kayda girmez).
+- Flaş ve fener, 3 ve 10 saniyelik zamanlayıcı, ızgara, ön/arka kamera, ses ya da kamera tuşuyla çekim.
 
-**Arayüz (Material 3 Expressive)**
-- Yüzen araç çubuğu, bağlı (connected) düğme grupları ve yaylı animasyonlar.
-- Şekil değiştiren deklanşör: basınca kurabiye şekline girer, kayıtta kırmızı daire "dur" karesine dönüşür ve arkasında bir makara döner.
-- Dinamik renk (Android 12+), titreşimli geri bildirim ve deklanşör sesi.
-- **Kasetler** galerisi: fotoğraf ve video görüntüleyici, yakınlaştırma, paylaşma ve silme.
+**Arayüz**
+- Telefonun kendi kamerası gibi: üstte ikon çubuğu, kenardan kenara vizör, altta stil küçük resimleri, mod şeridi ve deklanşör.
+- Material 3 Expressive bileşenleri, yaylı animasyonlar, şekil değiştiren deklanşör, dinamik renk ve titreşimli geri bildirim.
+- İlk açılışta tanıtım ekranı; açılışta kaset animasyonlu açılış ekranı ve eski bir televizyon gibi açılan görüntü.
+- Türkçe ve İngilizce.
 
 Çekilen dosyalar `DCIM/VHS Cam` klasörüne kaydedilir ve telefonun galeri uygulamasında da görünür.
 
@@ -105,6 +112,15 @@ Kamera ve GPU davranışı yalnızca gerçek cihazda doğrulanabilir. Yeni bir s
 - [ ] **Galeri:** Fotoğraf yakınlaştırma, video oynatma, paylaşma ve silme.
 - [ ] **Akıcılık:** Düşük seviye bir telefonda vizör ve kayıt yaklaşık 30 fps olmalı.
 - [ ] **Ayarlar:** Duvar kâğıdı renkleri, titreşim ve deklanşör sesi anahtarları.
+- [ ] **Yeni stiller:** 8-bit, webcam ve CCTV ile fotoğraf ve video; 8-bit fotoğrafta çerçeve, webcam ve CCTV videosunda düşük kare hızı.
+- [ ] **Efektler:** Efekt tuşundaki her efekt vizörde ve kayıtta görünmeli; strobe ve iz hareketle belli olmalı.
+- [ ] **Dijital zoom:** Lensin sonundan sonra zoom sürmeli, W–T çubuğu ve D.ZOOM görünmeli.
+- [ ] **Fader ve mavi ekran:** Kayıt mavi ekranla başlamalı, fader açıkken başta/sonda ve duraklatmada kararma olmalı.
+- [ ] **Aralıklı çekim:** Kaydedilen video bir saniyelik parçalardan oluşmalı; rozet geri sayımı göstermeli.
+- [ ] **Çift çekim:** Destekleyen telefonda iki kamera birlikte görünmeli; küçük görüntünün yeri ve yönü doğru olmalı.
+- [ ] **Pro:** ISO ve enstantane değiştikçe parlaklık değişmeli; yalnızca biri seçilince parlaklık korunmalı; fotoğraf aynı ayarlarla kaydedilmeli.
+- [ ] **Fotokabin, GIF ve stil değiştirme:** Dört karelik şerit; videodan GIF; eski bir fotoğrafın stilini değiştirip yeni fotoğraf olarak kaydetme.
+- [ ] **İlk açılış:** Tanıtım ekranı bir kez görünmeli; açılış animasyonu ve televizyon gibi açılma akıcı olmalı.
 
 ## Lisanslar
 

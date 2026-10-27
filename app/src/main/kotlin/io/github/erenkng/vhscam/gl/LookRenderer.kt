@@ -3,6 +3,7 @@ package io.github.erenkng.vhscam.gl
 import android.opengl.GLES11Ext
 import android.opengl.GLES30
 import io.github.erenkng.vhscam.core.geometry.Affine2
+import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.roundToInt
@@ -10,11 +11,12 @@ import kotlin.math.roundToInt
 /**
  * Runs the GLSL passes of a look. The pass graph mirrors tools/shader-lab/lab.js:
  *
- * - input: camera/photo -> upright working frame (+ burned-in OSD)
- * - VHS: chroma (quarter width) -> tape playback
- * - CCD: single pass
+ * - input: camera/photo -> upright working frame (+ burned-in OSD, camcorder effects)
+ * - VHS: [trail] -> chroma (quarter width) -> tape playback
+ * - CCD, 8-bit, webcam, CCTV: single pass
  * - film / instant film: glow (quarter size) -> look pass
- * - present: working frame -> output surface (+ crisp OSD, vignette, scanlines, peaking)
+ * - present: working frame -> output surface (+ crisp OSD, vignette, scanlines, peaking,
+ *   blue screen, fader)
  *
  * Must be created and used on a thread with a current GLES 3 context.
  */
@@ -28,12 +30,19 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
     private val glow = shaders.program("glow.frag")
     private val film = shaders.program("film.frag")
     private val polaroid = shaders.program("polaroid.frag")
+    private val gameBoy = shaders.program("gameboy.frag")
+    private val webcam = shaders.program("webcam.frag")
+    private val cctv = shaders.program("cctv.frag")
+    private val trail = shaders.program("trail.frag")
     private val present = shaders.program("present.frag")
 
     private val working = TargetSlot()
     private val chroma = TargetSlot()
     private val glowTarget = TargetSlot()
     private val result = TargetSlot()
+    private val trailTargets = arrayOf(TargetSlot(), TargetSlot())
+    private var trailIndex = 0
+    private var trailValid = false
 
     private val vertexArray: Int
     private val vertexBuffer: Int
@@ -75,6 +84,7 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
      * Renders [spec] from [inputTexture] into the working targets.
      *
      * @param uprightToTexture maps upright uv to input texture coordinates.
+     * @param mosaic block size in working pixels (mosaic effect, blocky digital zoom); 0 is off.
      */
     fun process(
         inputTexture: Int,
@@ -86,23 +96,48 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
         frame: Int,
         osd: OsdLayers,
         osdMirror: Boolean,
+        mosaic: Float = 0f,
     ) {
         GLES30.glBindVertexArray(vertexArray)
         val w = workWidth.coerceAtLeast(4)
         val h = workHeight.coerceAtLeast(4)
         val a = working.get(w, h)
         val out = result.get(w, h)
+        val effect = (spec as? LookSpec.Vhs)?.effect ?: CamcorderEffect.NONE
 
         a.bind()
         input.use()
         input.setMatrix("uUvTransform", uprightToTexture.toGlMatrix(matrix))
         input.set("uPixelX", uprightToTexture.a / w, uprightToTexture.b / w)
         input.set("uPixelY", uprightToTexture.c / h, uprightToTexture.d / h)
+        input.set("uWorkSize", w.toFloat(), h.toFloat())
+        input.set("uMosaic", if (effect == CamcorderEffect.MOSAIC) maxOf(mosaic, h / 40f) else mosaic)
+        input.set("uEffect", effect.shaderIndex())
+        input.set("uNightGain", NIGHT_GAIN)
         input.set("uOsdEnabled", if (osd.hasBurned) 1f else 0f)
         input.set("uOsdMirror", if (osdMirror) 1f else 0f)
         input.setTexture("uInput", 0, inputTarget, inputTexture)
         input.setTexture("uOsd", 1, GLES30.GL_TEXTURE_2D, if (osd.hasBurned) osd.burnedTexture else blankTexture)
         draw()
+
+        // Trail: blend with the previous output of this pass (ping-pong between two targets).
+        val source = if (effect == CamcorderEffect.TRAIL) {
+            val previous = trailTargets[trailIndex].peek()?.takeIf { trailValid && it.width == w && it.height == h }
+            trailIndex = 1 - trailIndex
+            val next = trailTargets[trailIndex].get(w, h)
+            next.bind()
+            trail.use()
+            trail.setMatrix("uUvTransform", identity)
+            trail.set("uTrail", TRAIL_AMOUNT)
+            trail.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+            trail.setTexture("uPrevious", 1, GLES30.GL_TEXTURE_2D, (previous ?: a).texture)
+            draw()
+            trailValid = true
+            next
+        } else {
+            trailValid = false
+            a
+        }
 
         when (spec) {
             is LookSpec.Vhs -> {
@@ -114,7 +149,7 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
                 vhsChroma.set("uSrcSize", w.toFloat(), h.toFloat())
                 vhsChroma.set("uChromaBlur", p.chromaBlur)
                 vhsChroma.set("uChromaShift", p.chromaShift)
-                vhsChroma.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                vhsChroma.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, source.texture)
                 draw()
 
                 out.bind()
@@ -136,8 +171,60 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
                 vhsTape.set("uBlackLift", p.blackLift)
                 vhsTape.set("uTint", p.tintR, p.tintG, p.tintB)
                 vhsTape.set("uGlitch", spec.glitch)
-                vhsTape.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                vhsTape.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, source.texture)
                 vhsTape.setTexture("uChroma", 1, GLES30.GL_TEXTURE_2D, c.texture)
+                draw()
+            }
+            is LookSpec.GameBoy -> {
+                val p = spec.params
+                val s = p.shades
+                out.bind()
+                gameBoy.use()
+                gameBoy.setMatrix("uUvTransform", identity)
+                gameBoy.set("uSrcSize", w.toFloat(), h.toFloat())
+                gameBoy.set("uContrast", p.contrast)
+                gameBoy.set("uBrightness", p.brightness)
+                gameBoy.set("uEdge", p.edge)
+                gameBoy.set("uDither", p.dither)
+                gameBoy.set("uShade0", s[0], s[1], s[2])
+                gameBoy.set("uShade1", s[3], s[4], s[5])
+                gameBoy.set("uShade2", s[6], s[7], s[8])
+                gameBoy.set("uShade3", s[9], s[10], s[11])
+                gameBoy.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                draw()
+            }
+            is LookSpec.Webcam -> {
+                val p = spec.params
+                out.bind()
+                webcam.use()
+                webcam.setMatrix("uUvTransform", identity)
+                webcam.set("uSrcSize", w.toFloat(), h.toFloat())
+                webcam.setUnsigned("uFrame", frame)
+                webcam.set("uExposure", p.exposure)
+                webcam.set("uContrast", p.contrast)
+                webcam.set("uSaturation", p.saturation)
+                webcam.set("uTint", p.tintR, p.tintG, p.tintB)
+                webcam.set("uNoise", p.noise)
+                webcam.set("uBlockiness", p.blockiness)
+                webcam.set("uVignette", p.vignette)
+                webcam.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                draw()
+            }
+            is LookSpec.Cctv -> {
+                val p = spec.params
+                out.bind()
+                cctv.use()
+                cctv.setMatrix("uUvTransform", identity)
+                cctv.set("uSrcSize", w.toFloat(), h.toFloat())
+                cctv.setUnsigned("uFrame", frame)
+                cctv.set("uTime", time)
+                cctv.set("uContrast", p.contrast)
+                cctv.set("uNoise", p.noise)
+                cctv.set("uBarrel", p.barrel)
+                cctv.set("uHum", p.hum)
+                cctv.set("uTint", p.tintR, p.tintG, p.tintB)
+                cctv.set("uVignette", p.vignette)
+                cctv.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
                 draw()
             }
             is LookSpec.Ccd -> {
@@ -235,6 +322,7 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
         osdMirror: Boolean,
         peaking: Float,
         target: RenderTarget? = null,
+        fx: PresentFx = PresentFx(),
     ) {
         val out = result.peek() ?: return
         val clean = working.peek() ?: return
@@ -245,17 +333,21 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             GLES30.glViewport(0, 0, width, height)
         }
-        val vhs = spec as? LookSpec.Vhs
         present.use()
         present.setMatrix("uUvTransform", outputToUpright.toGlMatrix(matrix))
         present.set("uSrcSize", out.width.toFloat(), out.height.toFloat())
         present.set("uOverlayEnabled", if (osd.hasOverlay) 1f else 0f)
         present.set("uOverlayMirror", if (osdMirror) 1f else 0f)
-        present.set("uVignette", vhs?.params?.vignette ?: 0f)
-        present.set("uScanlines", vhs?.params?.scanlines ?: 0f)
+        present.set("uVignette", spec.vignette)
+        present.set("uScanlines", spec.scanlines)
         present.set("uPeaking", peaking)
         present.set("uPeakColor", 1f, 0.25f, 0.65f)
+        present.set("uBlueScreen", fx.blueScreen)
+        present.set("uFade", fx.fade)
+        if (fx.fadeWhite) present.set("uFadeColor", 1f, 1f, 1f) else present.set("uFadeColor", 0f, 0f, 0f)
         present.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, out.texture)
+        val filter = if (spec.nearest) GLES30.GL_NEAREST else GLES30.GL_LINEAR
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, filter)
         present.setTexture("uOverlay", 1, GLES30.GL_TEXTURE_2D, if (osd.hasOverlay) osd.overlayTexture else blankTexture)
         present.setTexture("uPeakSrc", 2, GLES30.GL_TEXTURE_2D, clean.texture)
         draw()
@@ -266,10 +358,23 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
     }
 
     fun release() {
-        listOf(input, vhsChroma, vhsTape, ccd, glow, film, polaroid, present).forEach { it.release() }
-        listOf(working, chroma, glowTarget, result).forEach { it.release() }
+        listOf(input, vhsChroma, vhsTape, ccd, glow, film, polaroid, gameBoy, webcam, cctv, trail, present)
+            .forEach { it.release() }
+        (listOf(working, chroma, glowTarget, result) + trailTargets).forEach { it.release() }
         GLES30.glDeleteBuffers(1, intArrayOf(vertexBuffer), 0)
         GLES30.glDeleteVertexArrays(1, intArrayOf(vertexArray), 0)
         GLES30.glDeleteTextures(1, intArrayOf(blankTexture), 0)
+    }
+
+    private companion object {
+        const val NIGHT_GAIN = 1.5f
+        const val TRAIL_AMOUNT = 0.82f
+
+        fun CamcorderEffect.shaderIndex(): Float = when (this) {
+            CamcorderEffect.NIGHT_VISION -> 1f
+            CamcorderEffect.SEPIA -> 2f
+            CamcorderEffect.MONO -> 3f
+            else -> 0f
+        }
     }
 }

@@ -5,7 +5,9 @@ import io.github.erenkng.vhscam.audio.TapeAudioExporter
 import io.github.erenkng.vhscam.camera.PhotoPipeline
 import io.github.erenkng.vhscam.camera.VideoPipeline
 import io.github.erenkng.vhscam.gl.StillRenderer
+import io.github.erenkng.vhscam.media.GifMaker
 import io.github.erenkng.vhscam.media.MediaRepository
+import io.github.erenkng.vhscam.media.OriginalsStore
 import io.github.erenkng.vhscam.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,9 +24,11 @@ class AppContainer(context: Context) {
 
     val settings = SettingsRepository(context)
     val media = MediaRepository(context)
-    private val stillRenderer = StillRenderer(context)
-    val photoPipeline = PhotoPipeline(context, stillRenderer, media)
+    val originals = OriginalsStore(context)
+    val stillRenderer = StillRenderer(context)
+    val photoPipeline = PhotoPipeline(context, stillRenderer, media, originals)
     val videoPipeline = VideoPipeline(context, TapeAudioExporter(context), media)
+    val gifMaker = GifMaker(context, media)
 
     private val _hardwareShutter = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
