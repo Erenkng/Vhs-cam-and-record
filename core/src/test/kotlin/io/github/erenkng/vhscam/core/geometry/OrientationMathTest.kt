@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 
 class OrientationMathTest {
 
-    /** Typical SurfaceTexture transform: a vertical flip. */
+    /** Raw buffer uv -> texture coordinates. An output in sensor orientation has exactly this transform. */
     private val flipY = Affine2(d = -1f, f = 1f)
 
     @Test
@@ -42,7 +42,6 @@ class OrientationMathTest {
     fun streamSharingOutputIsRotatedIntoUprightSpace() {
         // Stream sharing: the effect output stays in sensor orientation (no additional transform).
         val mapping = OrientationMath.fit(
-            surfaceTexture = flipY,
             output = flipY,
             bufferWidth = 1440,
             bufferHeight = 1080,
@@ -57,11 +56,43 @@ class OrientationMathTest {
     }
 
     @Test
+    fun portraitVideoKeepsTheStampUprightOnScreen() {
+        // Video with the phone held upright (back camera, sensor at 90 degrees): the effect writes
+        // in sensor orientation and the preview turns that a quarter turn clockwise.
+        val mapping = OrientationMath.fit(
+            output = flipY,
+            bufferWidth = 1440,
+            bufferHeight = 1080,
+            sensorRotationDegrees = 90,
+        )
+        val screenToOutput = OrientationMath.uprightToRotated(90)
+        // Each point on screen shows the upright frame at that same point, so text reads upright.
+        assertAffineEquals(Affine2.IDENTITY, mapping.outputToUpright * screenToOutput)
+        assertEquals(0.75f, mapping.uprightAspect, 1e-4f)
+        // The upright frame is the buffer turned clockwise, whatever SurfaceTexture's own
+        // transform holds (it usually includes this same rotation already).
+        assertAffineEquals(flipY * OrientationMath.uprightToRotated(90), mapping.uprightToTexture)
+    }
+
+    @Test
+    fun landscapeVideoUsesTheSensorFrameAsItIs() {
+        // Held on its side with the top to the left, the back sensor is already the right way up.
+        val mapping = OrientationMath.fit(
+            output = flipY,
+            bufferWidth = 1440,
+            bufferHeight = 1080,
+            sensorRotationDegrees = 0,
+        )
+        assertEquals(1440f / 1080f, mapping.uprightAspect, 1e-4f)
+        assertAffineEquals(flipY, mapping.uprightToTexture)
+        assertAffineEquals(Affine2.IDENTITY, mapping.outputToUpright)
+    }
+
+    @Test
     fun alreadyRotatedOutputNeedsNoExtraRotation() {
         // A preview-only effect receives an output CameraX already rotated for portrait.
         val additional = OrientationMath.uprightToRotated(90)
         val mapping = OrientationMath.fit(
-            surfaceTexture = flipY,
             output = flipY * additional,
             bufferWidth = 1440,
             bufferHeight = 1080,
@@ -75,7 +106,6 @@ class OrientationMathTest {
         // Output already rotated for a portrait display, but the phone is held in landscape.
         val additional = OrientationMath.uprightToRotated(90)
         val mapping = OrientationMath.fit(
-            surfaceTexture = flipY,
             output = flipY * additional,
             bufferWidth = 1440,
             bufferHeight = 1080,
@@ -90,7 +120,6 @@ class OrientationMathTest {
     fun mirroredOutputIsDetectedAndCancelledForTheFinalPass() {
         val additional = OrientationMath.uprightToRotated(90) * OrientationMath.MIRROR_U
         val mapping = OrientationMath.fit(
-            surfaceTexture = flipY,
             output = flipY * additional,
             bufferWidth = 1440,
             bufferHeight = 1080,
@@ -106,7 +135,6 @@ class OrientationMathTest {
         // 16:9 band out of a 4:3 buffer.
         val crop = Affine2(a = 1f, d = 0.75f, e = 0f, f = 0.125f)
         val mapping = OrientationMath.fit(
-            surfaceTexture = flipY,
             output = flipY * crop,
             bufferWidth = 1440,
             bufferHeight = 1080,
