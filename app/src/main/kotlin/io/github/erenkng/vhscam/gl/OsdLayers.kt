@@ -36,7 +36,8 @@ class OsdLayers(private val painter: OsdPainter) {
     ) {
         val burnedText: List<String?> = when (look) {
             Look.VHS -> listOf(content.camcorderTime, content.camcorderDate)
-            Look.FILM, Look.DISPOSABLE -> listOf(content.filmStamp)
+            Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE ->
+                listOf(content.filmStamp)
             else -> emptyList()
         }
         val newBurnedKey = listOf(look, burnedText, burnedWidth, burnedHeight)
@@ -47,7 +48,8 @@ class OsdLayers(private val painter: OsdPainter) {
                 burnedTexture = upload(burnedTexture, burnedWidth, burnedHeight) { canvas, w, h ->
                     when (look) {
                         Look.VHS -> painter.camcorderStamp(canvas, w, h, content.camcorderTime, content.camcorderDate)
-                        Look.FILM, Look.DISPOSABLE -> content.filmStamp?.let { painter.filmStamp(canvas, w, h, it) }
+                        Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE ->
+                            content.filmStamp?.let { painter.filmStamp(canvas, w, h, it) }
                         else -> Unit
                     }
                 }

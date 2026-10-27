@@ -4,6 +4,7 @@ import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CcdParams
 import io.github.erenkng.vhscam.core.look.CctvParams
 import io.github.erenkng.vhscam.core.look.DisposableParams
+import io.github.erenkng.vhscam.core.look.FilmStockParams
 import io.github.erenkng.vhscam.core.look.FilmParams
 import io.github.erenkng.vhscam.core.look.GameBoyParams
 import io.github.erenkng.vhscam.core.look.Look
@@ -70,6 +71,9 @@ sealed interface LookSpec {
     data class Super8(val params: Super8Params) : LookSpec {
         override val kind get() = Look.SUPER8
     }
+
+    /** One of the colour film stocks (see FilmStocks); [kind] says which. */
+    data class FilmStock(override val kind: Look, val params: FilmStockParams) : LookSpec
 
     data class Disposable(val params: DisposableParams) : LookSpec {
         override val kind get() = Look.DISPOSABLE

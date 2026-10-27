@@ -38,11 +38,6 @@ class SettingsRepository(context: Context) {
         val frontCamera = booleanPreferencesKey("front_camera")
         val photoLook = stringPreferencesKey("photo_look")
         val videoLook = stringPreferencesKey("video_look")
-        val gameBoyIntensity = floatPreferencesKey("gameboy_intensity")
-        val webcamIntensity = floatPreferencesKey("webcam_intensity")
-        val cctvIntensity = floatPreferencesKey("cctv_intensity")
-        val super8Intensity = floatPreferencesKey("super8_intensity")
-        val disposableIntensity = floatPreferencesKey("disposable_intensity")
         val effect = stringPreferencesKey("effect")
         val fade = booleanPreferencesKey("fade")
         val fadeColor = stringPreferencesKey("fade_color")
@@ -61,9 +56,6 @@ class SettingsRepository(context: Context) {
         val headSwitch = floatPreferencesKey("vhs_head_switch")
         val scanlines = floatPreferencesKey("vhs_scanlines")
         val vignette = floatPreferencesKey("vhs_vignette")
-        val ccdIntensity = floatPreferencesKey("ccd_intensity")
-        val filmIntensity = floatPreferencesKey("film_intensity")
-        val polaroidIntensity = floatPreferencesKey("polaroid_intensity")
         val aspect = stringPreferencesKey("aspect")
         val videoQuality = stringPreferencesKey("video_quality")
         val flash = stringPreferencesKey("flash")
@@ -82,6 +74,9 @@ class SettingsRepository(context: Context) {
         val shutterSound = booleanPreferencesKey("shutter_sound")
         val haptics = booleanPreferencesKey("haptics")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
+
+        /** Each look's strength, e.g. "film_intensity" (the names v1.0 already used). */
+        fun intensity(look: Look) = floatPreferencesKey("${look.name.lowercase()}_intensity")
     }
 
     private inline fun <reified E : Enum<E>> Preferences.enum(key: Preferences.Key<String>, default: E): E =
@@ -95,11 +90,7 @@ class SettingsRepository(context: Context) {
             frontCamera = this[Keys.frontCamera] ?: d.frontCamera,
             photoLook = enum(Keys.photoLook, d.photoLook),
             videoLook = enum(Keys.videoLook, d.videoLook).takeIf { it.video } ?: d.videoLook,
-            gameBoyIntensity = this[Keys.gameBoyIntensity] ?: d.gameBoyIntensity,
-            webcamIntensity = this[Keys.webcamIntensity] ?: d.webcamIntensity,
-            cctvIntensity = this[Keys.cctvIntensity] ?: d.cctvIntensity,
-            super8Intensity = this[Keys.super8Intensity] ?: d.super8Intensity,
-            disposableIntensity = this[Keys.disposableIntensity] ?: d.disposableIntensity,
+            intensities = Look.entries.mapNotNull { look -> this[Keys.intensity(look)]?.let { look to it } }.toMap(),
             effect = enum(Keys.effect, d.effect),
             fade = this[Keys.fade] ?: d.fade,
             fadeColor = enum(Keys.fadeColor, d.fadeColor),
@@ -120,9 +111,6 @@ class SettingsRepository(context: Context) {
                 scanlines = this[Keys.scanlines] ?: dv.scanlines,
                 vignette = this[Keys.vignette] ?: dv.vignette,
             ),
-            ccdIntensity = this[Keys.ccdIntensity] ?: d.ccdIntensity,
-            filmIntensity = this[Keys.filmIntensity] ?: d.filmIntensity,
-            polaroidIntensity = this[Keys.polaroidIntensity] ?: d.polaroidIntensity,
             aspect = enum(Keys.aspect, d.aspect),
             videoQuality = enum(Keys.videoQuality, d.videoQuality),
             flash = enum(Keys.flash, d.flash),
@@ -149,11 +137,7 @@ class SettingsRepository(context: Context) {
         this[Keys.frontCamera] = s.frontCamera
         this[Keys.photoLook] = s.photoLook.name
         this[Keys.videoLook] = s.videoLook.name
-        this[Keys.gameBoyIntensity] = s.gameBoyIntensity
-        this[Keys.webcamIntensity] = s.webcamIntensity
-        this[Keys.cctvIntensity] = s.cctvIntensity
-        this[Keys.super8Intensity] = s.super8Intensity
-        this[Keys.disposableIntensity] = s.disposableIntensity
+        s.intensities.forEach { (look, value) -> this[Keys.intensity(look)] = value }
         this[Keys.effect] = s.effect.name
         this[Keys.fade] = s.fade
         this[Keys.fadeColor] = s.fadeColor.name
@@ -172,9 +156,6 @@ class SettingsRepository(context: Context) {
         this[Keys.headSwitch] = s.vhs.headSwitch
         this[Keys.scanlines] = s.vhs.scanlines
         this[Keys.vignette] = s.vhs.vignette
-        this[Keys.ccdIntensity] = s.ccdIntensity
-        this[Keys.filmIntensity] = s.filmIntensity
-        this[Keys.polaroidIntensity] = s.polaroidIntensity
         this[Keys.aspect] = s.aspect.name
         this[Keys.videoQuality] = s.videoQuality.name
         this[Keys.flash] = s.flash.name

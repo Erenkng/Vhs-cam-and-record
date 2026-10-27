@@ -66,6 +66,30 @@ class PresetsTest {
     }
 
     @Test
+    fun filmStocksScaleFromNeutral() {
+        for (look in FilmStocks.looks) {
+            val neutral = FilmStocks.params(look, 0f)
+            assertEquals(FilmStockParams.IDENTITY, neutral.matrix, "$look matrix")
+            assertEquals(1f, neutral.contrast, "$look contrast")
+            assertEquals(0f, neutral.grain, "$look grain")
+            assertEquals(0f, neutral.halation, "$look halation")
+            assertEquals(LookCategory.FILM, look.category)
+            assertTrue(FilmStocks.params(look, 1f).grain > FilmStocks.params(look, 0.5f).grain, "$look grain grows")
+        }
+        assertEquals(setOf(Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE), FilmStocks.looks)
+        // Red grain is the grainiest and the reddest; Cine 800 glows the most.
+        val red = FilmStocks.params(Look.RED_GRAIN)
+        assertTrue(FilmStocks.looks.all { FilmStocks.params(it).grain <= red.grain && FilmStocks.params(it).redGrain <= red.redGrain })
+        assertTrue(FilmStocks.looks.all { FilmStocks.params(it).halation <= FilmStocks.params(Look.CINE).halation })
+    }
+
+    @Test
+    fun looksAreOrderedByCategory() {
+        val categories = Look.entries.map { it.category }
+        assertEquals(categories.sortedBy { it.ordinal }, categories)
+    }
+
+    @Test
     fun super8RunsAtEighteenPicturesASecond() {
         assertEquals(18, Look.SUPER8.pictureRate)
         assertTrue(Look.SUPER8.video)

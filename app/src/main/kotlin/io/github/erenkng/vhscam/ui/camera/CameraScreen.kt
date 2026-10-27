@@ -737,6 +737,11 @@ fun Look.sample(): Int = when (this) {
     Look.SUPER8 -> R.drawable.onboarding_super8
     Look.CCD -> R.drawable.onboarding_ccd
     Look.FILM -> R.drawable.onboarding_film
+    Look.GOLD -> R.drawable.onboarding_gold
+    Look.PORTRAIT -> R.drawable.onboarding_portrait
+    Look.CINE -> R.drawable.onboarding_cine
+    Look.RED_GRAIN -> R.drawable.onboarding_red_grain
+    Look.REDSCALE -> R.drawable.onboarding_redscale
     Look.DISPOSABLE -> R.drawable.onboarding_disposable
     Look.POLAROID -> R.drawable.onboarding_instant
     Look.GAMEBOY -> R.drawable.onboarding_gameboy
@@ -749,6 +754,11 @@ fun Look.label(): Int = when (this) {
     Look.SUPER8 -> R.string.look_super8
     Look.CCD -> R.string.look_ccd
     Look.FILM -> R.string.look_film
+    Look.GOLD -> R.string.look_gold
+    Look.PORTRAIT -> R.string.look_portrait
+    Look.CINE -> R.string.look_cine
+    Look.RED_GRAIN -> R.string.look_red_grain
+    Look.REDSCALE -> R.string.look_redscale
     Look.DISPOSABLE -> R.string.look_disposable
     Look.POLAROID -> R.string.look_polaroid
     Look.GAMEBOY -> R.string.look_gameboy

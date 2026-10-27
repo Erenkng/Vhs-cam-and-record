@@ -1,5 +1,6 @@
 package io.github.erenkng.vhscam.camera
 
+import io.github.erenkng.vhscam.core.look.FilmStocks
 import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.PhotoLookPresets
 import io.github.erenkng.vhscam.core.look.VhsPresets
@@ -18,46 +19,37 @@ object LookFactory {
     fun activeLook(settings: AppSettings): Look =
         if (settings.mode.takesPhotos) settings.photoLook else settings.videoLook.takeIf { it.video } ?: Look.VHS
 
-    fun spec(settings: AppSettings, look: Look, seed: Float): LookSpec = when (look) {
-        Look.VHS -> LookSpec.Vhs(
-            params = VhsPresets.params(settings.tapeSpeed, settings.vhs),
-            speed = settings.tapeSpeed,
-            effect = settings.effect,
-        )
-        Look.SUPER8 -> LookSpec.Super8(PhotoLookPresets.super8(settings.super8Intensity))
-        Look.CCD -> LookSpec.Ccd(PhotoLookPresets.ccd(settings.ccdIntensity))
-        Look.FILM -> LookSpec.Film(PhotoLookPresets.film(settings.filmIntensity), seed)
-        Look.DISPOSABLE -> LookSpec.Disposable(PhotoLookPresets.disposable(settings.disposableIntensity))
-        Look.POLAROID -> LookSpec.Polaroid(PhotoLookPresets.polaroid(settings.polaroidIntensity), seed)
-        Look.GAMEBOY -> LookSpec.GameBoy(PhotoLookPresets.gameBoy(settings.gameBoyIntensity))
-        Look.WEBCAM -> LookSpec.Webcam(PhotoLookPresets.webcam(settings.webcamIntensity))
-        Look.CCTV -> LookSpec.Cctv(PhotoLookPresets.cctv(settings.cctvIntensity))
+    fun spec(settings: AppSettings, look: Look, seed: Float): LookSpec {
+        val intensity = settings.intensity(look)
+        return when (look) {
+            Look.VHS -> LookSpec.Vhs(
+                params = VhsPresets.params(settings.tapeSpeed, settings.vhs),
+                speed = settings.tapeSpeed,
+                effect = settings.effect,
+            )
+            Look.SUPER8 -> LookSpec.Super8(PhotoLookPresets.super8(intensity))
+            Look.FILM -> LookSpec.Film(PhotoLookPresets.film(intensity), seed)
+            Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE ->
+                LookSpec.FilmStock(look, FilmStocks.params(look, intensity))
+            Look.DISPOSABLE -> LookSpec.Disposable(PhotoLookPresets.disposable(intensity))
+            Look.POLAROID -> LookSpec.Polaroid(PhotoLookPresets.polaroid(intensity), seed)
+            Look.CCD -> LookSpec.Ccd(PhotoLookPresets.ccd(intensity))
+            Look.GAMEBOY -> LookSpec.GameBoy(PhotoLookPresets.gameBoy(intensity))
+            Look.WEBCAM -> LookSpec.Webcam(PhotoLookPresets.webcam(intensity))
+            Look.CCTV -> LookSpec.Cctv(PhotoLookPresets.cctv(intensity))
+        }
     }
 
     /** Intensity slider value of a look; VHS uses tape wear instead. */
-    fun intensity(settings: AppSettings, look: Look): Float = when (look) {
-        Look.VHS -> settings.vhs.wear
-        Look.SUPER8 -> settings.super8Intensity
-        Look.CCD -> settings.ccdIntensity
-        Look.FILM -> settings.filmIntensity
-        Look.DISPOSABLE -> settings.disposableIntensity
-        Look.POLAROID -> settings.polaroidIntensity
-        Look.GAMEBOY -> settings.gameBoyIntensity
-        Look.WEBCAM -> settings.webcamIntensity
-        Look.CCTV -> settings.cctvIntensity
-    }
+    fun intensity(settings: AppSettings, look: Look): Float =
+        if (look == Look.VHS) settings.vhs.wear else settings.intensity(look)
 
-    fun withIntensity(settings: AppSettings, look: Look, value: Float): AppSettings = when (look) {
-        Look.VHS -> settings.copy(vhs = settings.vhs.copy(wear = value))
-        Look.SUPER8 -> settings.copy(super8Intensity = value)
-        Look.CCD -> settings.copy(ccdIntensity = value)
-        Look.FILM -> settings.copy(filmIntensity = value)
-        Look.DISPOSABLE -> settings.copy(disposableIntensity = value)
-        Look.POLAROID -> settings.copy(polaroidIntensity = value)
-        Look.GAMEBOY -> settings.copy(gameBoyIntensity = value)
-        Look.WEBCAM -> settings.copy(webcamIntensity = value)
-        Look.CCTV -> settings.copy(cctvIntensity = value)
-    }
+    fun withIntensity(settings: AppSettings, look: Look, value: Float): AppSettings =
+        if (look == Look.VHS) {
+            settings.copy(vhs = settings.vhs.copy(wear = value))
+        } else {
+            settings.copy(intensities = settings.intensities + (look to value))
+        }
 
     /** Landscape aspect of the photo look's crop. Video crops through the camera view port. */
     fun lookAspect(settings: AppSettings): Float? =
@@ -85,8 +77,8 @@ object LookFactory {
             Look.CCD -> OsdContent(
                 digitalStamp = if (settings.dateStamp) DateStamp.ccdDate(time, settings.dateOrder) else null,
             )
-            // The single-use camera gets the same orange data-back date as the 35 mm one.
-            Look.FILM, Look.DISPOSABLE -> OsdContent(
+            // Film cameras of the time printed the date with an orange data back.
+            Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE -> OsdContent(
                 filmStamp = if (settings.dateStamp) DateStamp.filmDate(time, settings.dateOrder) else null,
             )
             // A security camera always stamps the time; the toggle only hides it.

@@ -153,6 +153,11 @@
     <string name="look_cctv">CCTV</string>
     <string name="look_super8">Super 8</string>
     <string name="look_disposable">Disposable</string>
+    <string name="look_gold">Gold</string>
+    <string name="look_portrait">Portrait</string>
+    <string name="look_cine">Cine 800</string>
+    <string name="look_red_grain">Red Grain</string>
+    <string name="look_redscale">Redscale</string>
     <string name="effects_button">Camcorder effects</string>
     <string name="effect_none">Off</string>
     <string name="effect_night">Night vision</string>

@@ -62,3 +62,32 @@ export const DISPOSABLE = {
   flash: 0.6, saturation: 1.3, contrast: 1.1, shadowTint: [0.9, 1.03, 1.0], highlightTint: [1.06, 1.0, 0.9],
   grain: 0.1, grainSize: 1.8, softness: 0.7, fringe: 1.2, vignette: 0.5,
 };
+
+// Colour film stocks for filmstock.frag (mirrors FilmStocks in core). Matrices are row-major.
+export const FILM_STOCKS = {
+  GOLD: {
+    exposure: 0.1, contrast: 1.12, fade: 0.02, matrix: [1.06, 0.02, -0.02, 0.02, 1, -0.02, -0.04, 0, 0.86],
+    saturation: 1.18, shadowTint: [1, 0.97, 0.92], highlightTint: [1.06, 1, 0.86],
+    halation: 0.3, halationTint: [1, 0.35, 0.12], grain: 0.07, grainSize: 1.7, redGrain: 0.55, vignette: 0.22,
+  },
+  PORTRAIT: {
+    exposure: 0.15, contrast: 0.9, fade: 0.03, matrix: [1.03, 0, -0.01, 0.02, 0.97, 0.02, 0, 0.04, 0.95],
+    saturation: 0.92, shadowTint: [0.97, 1, 1.03], highlightTint: [1.04, 1, 0.95],
+    halation: 0.15, halationTint: [1, 0.3, 0.1], grain: 0.045, grainSize: 1.4, redGrain: 0.35, vignette: 0.12,
+  },
+  CINE: {
+    exposure: 0, contrast: 1.08, fade: 0.025, matrix: [0.92, 0.04, 0, 0, 1, 0.02, 0.02, 0.06, 1.1],
+    saturation: 1.05, shadowTint: [0.88, 1, 1.06], highlightTint: [1.06, 1, 0.92],
+    halation: 0.95, halationTint: [1, 0.18, 0.06], grain: 0.085, grainSize: 1.9, redGrain: 0.6, vignette: 0.25,
+  },
+  RED_GRAIN: {
+    exposure: 0.05, contrast: 1.05, fade: 0.07, matrix: [1.08, 0.04, 0, 0.02, 0.97, 0, 0, 0.04, 0.86],
+    saturation: 1.08, shadowTint: [1.08, 0.94, 0.92], highlightTint: [1.04, 0.99, 0.9],
+    halation: 0.4, halationTint: [1, 0.3, 0.1], grain: 0.14, grainSize: 2, redGrain: 1, vignette: 0.3,
+  },
+  REDSCALE: {
+    exposure: 0.15, contrast: 1.15, fade: 0.02, matrix: [0.85, 0.55, 0.25, 0.25, 0.45, 0.12, 0.05, 0.07, 0.04],
+    saturation: 1, shadowTint: [1.05, 0.82, 0.75], highlightTint: [1, 0.97, 0.82],
+    halation: 0.3, halationTint: [1, 0.3, 0.1], grain: 0.11, grainSize: 1.9, redGrain: 0.8, vignette: 0.35,
+  },
+};

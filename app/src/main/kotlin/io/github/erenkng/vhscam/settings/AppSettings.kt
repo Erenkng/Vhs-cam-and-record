@@ -28,14 +28,8 @@ data class AppSettings(
     val videoLook: Look = Look.VHS,
     val tapeSpeed: TapeSpeed = TapeSpeed.SP,
     val vhs: VhsAdjustments = VhsAdjustments(),
-    val ccdIntensity: Float = 0.5f,
-    val filmIntensity: Float = 0.5f,
-    val polaroidIntensity: Float = 0.5f,
-    val gameBoyIntensity: Float = 0.5f,
-    val webcamIntensity: Float = 0.5f,
-    val cctvIntensity: Float = 0.5f,
-    val super8Intensity: Float = 0.5f,
-    val disposableIntensity: Float = 0.5f,
+    /** Strength of each look, 0..1, where 0.5 is the look as designed. VHS uses [vhs] wear. */
+    val intensities: Map<Look, Float> = emptyMap(),
     /** Camcorder digital effect, used with the VHS look. */
     val effect: CamcorderEffect = CamcorderEffect.NONE,
     /** Fade in when recording starts or resumes, fade out before it stops or pauses. */
@@ -68,4 +62,10 @@ data class AppSettings(
     val shutterSound: Boolean = true,
     val haptics: Boolean = true,
     val dynamicColor: Boolean = true,
-)
+) {
+    fun intensity(look: Look): Float = intensities[look] ?: DEFAULT_INTENSITY
+
+    companion object {
+        const val DEFAULT_INTENSITY = 0.5f
+    }
+}

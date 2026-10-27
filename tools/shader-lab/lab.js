@@ -7,6 +7,7 @@ import { drawCamcorderStamp, drawCctvOverlay, drawDigitalStamp, drawFilmStamp, d
 const SHADERS = '../../app/src/main/assets/shaders/';
 const LOOK_ASPECT = {
   VHS: 4 / 3, SUPER8: 4 / 3, CCD: 4 / 3, FILM: 3 / 2, DISPOSABLE: 3 / 2, POLAROID: 1, GAMEBOY: 8 / 7, WEBCAM: 4 / 3, CCTV: 4 / 3,
+  GOLD: 3 / 2, PORTRAIT: 3 / 2, CINE: 3 / 2, RED_GRAIN: 3 / 2, REDSCALE: 3 / 2,
 };
 // Height of the working frame per look (mirrors LookSpec.workLines in the app).
 const WORK_LINES = { VHS: 480, SUPER8: 540, GAMEBOY: 112, WEBCAM: 240, CCTV: 288 };
@@ -55,6 +56,7 @@ export class LookLab {
       trail: await load('trail.frag'),
       super8: await load('super8.frag'),
       disposable: await load('disposable.frag'),
+      filmstock: await load('filmstock.frag'),
     };
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -128,6 +130,8 @@ export class LookLab {
       const loc = gl.getUniformLocation(program, name);
       if (loc == null) continue;
       if (UINT_UNIFORMS.has(name)) gl.uniform1ui(loc, value >>> 0);
+      // Row-major 3 x 3 in, column-major for GL.
+      else if (Array.isArray(value) && value.length === 9) gl.uniformMatrix3fv(loc, false, [0, 3, 6, 1, 4, 7, 2, 5, 8].map((i) => value[i]));
       else if (value instanceof Float32Array) gl.uniformMatrix4fv(loc, false, value);
       else if (Array.isArray(value) && value.length === 2) gl.uniform2f(loc, ...value);
       else if (Array.isArray(value) && value.length === 3) gl.uniform3f(loc, ...value);
@@ -255,6 +259,16 @@ export class LookLab {
         uContrast: p.contrast, uShadowTint: p.shadowTint, uHighlightTint: p.highlightTint, uGrain: p.grain,
         uGrainSize: p.grainSize, uSoftness: p.softness, uFringe: p.fringe, uVignette: p.vignette,
       }, { uSrc: a.tex });
+    } else if (Presets.FILM_STOCKS[look]) {
+      const p = { ...Presets.FILM_STOCKS[look], ...overrides };
+      const glow = this.target(Math.round(W / 4), Math.round(H / 4));
+      this.draw(this.programs.glow, glow, { uSrcSize: [W, H], uThreshold: 0.7, uRadius: H * 0.025 }, { uSrc: a.tex });
+      this.draw(this.programs.filmstock, out, {
+        uSrcSize: [W, H], uScale: H / 1600, uFrame: frame, uExposure: p.exposure, uContrast: p.contrast,
+        uFade: p.fade, uMatrix: p.matrix, uSaturation: p.saturation, uShadowTint: p.shadowTint,
+        uHighlightTint: p.highlightTint, uHalation: p.halation, uHalationTint: p.halationTint, uGrain: p.grain,
+        uGrainSize: p.grainSize, uRedGrain: p.redGrain, uVignette: p.vignette,
+      }, { uSrc: a.tex, uGlow: glow.tex });
     } else if (look === 'CCD') {
       const p = Presets.CCD;
       this.draw(this.programs.ccd, out, {
