@@ -183,8 +183,6 @@
     <string name="interval_1m">1 min</string>
     <string name="interval_badge">INT REC</string>
     <string name="interval_next">next in %1$d s</string>
-    <string name="booth_on">Photobooth on</string>
-    <string name="booth_off">Photobooth off</string>
     <string name="booth_progress">Shot %1$d of %2$d</string>
     <string name="no_signal">NO SIGNAL</string>
     <string name="dzoom">D.ZOOM</string>
@@ -274,4 +272,36 @@
         <item quantity="one">%d shot on the roll in the camera</item>
         <item quantity="other">%d shots on the roll in the camera</item>
     </plurals>
+
+    <string name="shot_menu">Shooting mode: %1$s</string>
+    <string name="shot_single">Single photo</string>
+    <string name="shot_single_desc">One press, one photo</string>
+    <string name="shot_booth">Photobooth</string>
+    <string name="shot_booth_desc">Four shots on one strip</string>
+    <string name="shot_double">Double exposure</string>
+    <string name="shot_double_desc">Two shots on one frame</string>
+    <string name="shot_stop_motion">Stop-motion</string>
+    <string name="shot_stop_motion_desc">Frame by frame into a video</string>
+    <string name="shutter_frame">Add a frame</string>
+    <string name="exposure_step">Exposure %1$d/2</string>
+    <string name="exposure_cancel">Throw away the first exposure</string>
+    <plurals name="reel_frames">
+        <item quantity="one">%d frame</item>
+        <item quantity="other">%d frames</item>
+    </plurals>
+    <string name="reel_length">%1$s s</string>
+    <string name="reel_rate">%1$d fps</string>
+    <string name="reel_rate_title">Frames per second</string>
+    <string name="reel_undo">Take back the last frame</string>
+    <string name="reel_more">More options</string>
+    <string name="reel_discard">Delete all frames</string>
+    <string name="reel_discard_title">Delete the animation?</string>
+    <plurals name="reel_discard_body">
+        <item quantity="one">Its %d frame will be deleted.</item>
+        <item quantity="other">All %d frames will be deleted.</item>
+    </plurals>
+    <string name="reel_save">Save</string>
+    <string name="busy_animation">Making the animation…</string>
+    <string name="msg_animation_saved">Animation saved</string>
+    <string name="msg_animation_failed">Could not save the animation</string>
 </resources>

@@ -7,14 +7,17 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.erenkng.vhscam.core.look.AspectSetting
 import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.look.VhsAdjustments
+import io.github.erenkng.vhscam.core.media.StopMotion
 import io.github.erenkng.vhscam.core.osd.ClockStyle
 import io.github.erenkng.vhscam.core.osd.DateOrder
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +46,10 @@ class SettingsRepository(context: Context) {
         val fadeColor = stringPreferencesKey("fade_color")
         val blueIntro = booleanPreferencesKey("blue_intro")
         val interval = stringPreferencesKey("interval")
+        val shot = stringPreferencesKey("shot")
+        val stopMotionRate = intPreferencesKey("stop_motion_rate")
+
+        /** v1.0's photobooth switch, read once to carry it over to [shot]. */
         val booth = booleanPreferencesKey("booth")
         val keepOriginals = booleanPreferencesKey("keep_originals")
         val disposableNextMorning = booleanPreferencesKey("disposable_next_morning")
@@ -97,7 +104,9 @@ class SettingsRepository(context: Context) {
             fadeColor = enum(Keys.fadeColor, d.fadeColor),
             blueIntro = this[Keys.blueIntro] ?: d.blueIntro,
             interval = enum(Keys.interval, d.interval),
-            booth = this[Keys.booth] ?: d.booth,
+            shot = this[Keys.shot]?.let { name -> ShotKind.entries.firstOrNull { it.name == name } }
+                ?: if (this[Keys.booth] == true) ShotKind.BOOTH else d.shot,
+            stopMotionRate = StopMotion.valid(this[Keys.stopMotionRate]),
             keepOriginals = this[Keys.keepOriginals] ?: d.keepOriginals,
             disposableNextMorning = this[Keys.disposableNextMorning] ?: d.disposableNextMorning,
             onboardingDone = this[Keys.onboardingDone] ?: d.onboardingDone,
@@ -145,7 +154,9 @@ class SettingsRepository(context: Context) {
         this[Keys.fadeColor] = s.fadeColor.name
         this[Keys.blueIntro] = s.blueIntro
         this[Keys.interval] = s.interval.name
-        this[Keys.booth] = s.booth
+        this[Keys.shot] = s.shot.name
+        this[Keys.stopMotionRate] = s.stopMotionRate
+        remove(Keys.booth)
         this[Keys.keepOriginals] = s.keepOriginals
         this[Keys.disposableNextMorning] = s.disposableNextMorning
         this[Keys.onboardingDone] = s.onboardingDone

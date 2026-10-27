@@ -6,8 +6,10 @@ import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.FadeColor
 import io.github.erenkng.vhscam.core.look.IntervalSetting
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.look.VhsAdjustments
+import io.github.erenkng.vhscam.core.media.StopMotion
 import io.github.erenkng.vhscam.core.osd.ClockStyle
 import io.github.erenkng.vhscam.core.osd.DateOrder
 
@@ -38,8 +40,10 @@ data class AppSettings(
     /** Tapes start with a second of the VCR's blue screen. */
     val blueIntro: Boolean = true,
     val interval: IntervalSetting = IntervalSetting.OFF,
-    /** Photo mode takes a four-shot photobooth strip. */
-    val booth: Boolean = false,
+    /** What the shutter does in photo mode: one shot, a photobooth strip, a double exposure... */
+    val shot: ShotKind = ShotKind.SINGLE,
+    /** Stop-motion pictures a second, one of [StopMotion.RATES]. */
+    val stopMotionRate: Int = StopMotion.DEFAULT_RATE,
     /** Keep the untouched photo so its look can be changed later. */
     val keepOriginals: Boolean = true,
     /** Single-use camera shots wait for the roll to be developed the next morning. */

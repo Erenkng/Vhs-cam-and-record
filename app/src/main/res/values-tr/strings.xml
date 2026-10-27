@@ -174,8 +174,6 @@
     <string name="interval_1m">1 dk</string>
     <string name="interval_badge">INT REC</string>
     <string name="interval_next">sonraki %1$d sn</string>
-    <string name="booth_on">Fotokabin açık</string>
-    <string name="booth_off">Fotokabin kapalı</string>
     <string name="booth_progress">%1$d / %2$d. kare</string>
     <string name="no_signal">NO SIGNAL</string>
     <string name="dzoom">D.ZOOM</string>
@@ -265,4 +263,36 @@
         <item quantity="one">Makinedeki rulo: %d poz</item>
         <item quantity="other">Makinedeki rulo: %d poz</item>
     </plurals>
+
+    <string name="shot_menu">Çekim modu: %1$s</string>
+    <string name="shot_single">Tek fotoğraf</string>
+    <string name="shot_single_desc">Her basışta bir fotoğraf</string>
+    <string name="shot_booth">Fotokabin</string>
+    <string name="shot_booth_desc">Bir şeritte dört kare</string>
+    <string name="shot_double">Çift pozlama</string>
+    <string name="shot_double_desc">İki çekim tek karede</string>
+    <string name="shot_stop_motion">Stop-motion</string>
+    <string name="shot_stop_motion_desc">Kare kare bir video</string>
+    <string name="shutter_frame">Kare ekle</string>
+    <string name="exposure_step">Poz %1$d/2</string>
+    <string name="exposure_cancel">İlk pozu sil</string>
+    <plurals name="reel_frames">
+        <item quantity="one">%d kare</item>
+        <item quantity="other">%d kare</item>
+    </plurals>
+    <string name="reel_length">%1$s sn</string>
+    <string name="reel_rate">%1$d fps</string>
+    <string name="reel_rate_title">Saniyedeki kare</string>
+    <string name="reel_undo">Son kareyi geri al</string>
+    <string name="reel_more">Diğer seçenekler</string>
+    <string name="reel_discard">Tüm kareleri sil</string>
+    <string name="reel_discard_title">Animasyon silinsin mi?</string>
+    <plurals name="reel_discard_body">
+        <item quantity="one">%d kare silinecek.</item>
+        <item quantity="other">%d karenin hepsi silinecek.</item>
+    </plurals>
+    <string name="reel_save">Kaydet</string>
+    <string name="busy_animation">Animasyon hazırlanıyor…</string>
+    <string name="msg_animation_saved">Animasyon kaydedildi</string>
+    <string name="msg_animation_failed">Animasyon kaydedilemedi</string>
 </resources>

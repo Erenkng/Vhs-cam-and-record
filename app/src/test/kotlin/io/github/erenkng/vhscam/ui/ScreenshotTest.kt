@@ -25,8 +25,10 @@ import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.IntervalSetting
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.media.CapturedMedia
 import io.github.erenkng.vhscam.media.LabRoll
+import io.github.erenkng.vhscam.media.ReelState
 import io.github.erenkng.vhscam.media.RollState
 import io.github.erenkng.vhscam.settings.AppSettings
 import io.github.erenkng.vhscam.ui.camera.BoothUi
@@ -187,7 +189,7 @@ class ScreenshotTest {
     fun cameraBooth() = capture("08_camera_booth") {
         CameraContent(
             state = CameraUiState(
-                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.GAMEBOY, booth = true),
+                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.GAMEBOY, shot = ShotKind.BOOTH),
                 settingsLoaded = true,
                 signal = true,
                 capabilities = CameraCapabilities(hasFlash = true),
@@ -287,6 +289,40 @@ class ScreenshotTest {
     }
 
     @Test
+    fun cameraDoubleExposure() = capture("20_camera_double_exposure") {
+        val first = remember { fakePortrait() }
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.FILM, shot = ShotKind.DOUBLE),
+                settingsLoaded = true,
+                signal = true,
+                zoom = ZoomInfo(ratio = 1f, min = 0.6f, max = 8f),
+                capabilities = CameraCapabilities(hasFlash = true),
+                ghost = first,
+            ),
+            actions = CameraActions(),
+            viewfinder = { FakeScene(it) },
+        )
+    }
+
+    @Test
+    fun cameraStopMotion() = capture("21_camera_stop_motion") {
+        val last = remember { fakeEarlierScene() }
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.SUPER8, shot = ShotKind.STOP_MOTION),
+                settingsLoaded = true,
+                signal = true,
+                zoom = ZoomInfo(ratio = 1f, min = 0.6f, max = 8f),
+                capabilities = CameraCapabilities(hasFlash = true),
+                reel = ReelState(frames = 18, onion = last),
+            ),
+            actions = CameraActions(),
+            viewfinder = { FakeScene(it) },
+        )
+    }
+
+    @Test
     fun gallery() = capture("04_gallery") {
         VhsCamTheme(darkTheme = false, dynamicColor = false) {
             GalleryContent(
@@ -353,6 +389,40 @@ private fun fakeInstantPhoto(): Bitmap {
     canvas.drawCircle(560f, 400f, 90f, paint)
     paint.color = 0xFF3E6B48.toInt()
     canvas.drawRect(50f, 600f, 830f, 846f, paint)
+    return bitmap
+}
+
+/** A dark profile against a pale sky: the first shot of a double exposure. */
+private fun fakePortrait(): Bitmap {
+    val bitmap = Bitmap.createBitmap(900, 1200, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    canvas.drawColor(0xFFE9EEF2.toInt())
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF1E2430.toInt() }
+    canvas.drawCircle(450f, 470f, 190f, paint)
+    canvas.drawRect(380f, 600f, 520f, 820f, paint)
+    canvas.drawOval(110f, 780f, 790f, 1440f, paint)
+    return bitmap
+}
+
+/** The fake scene a moment earlier, the sun still lower: the last stop-motion frame. */
+private fun fakeEarlierScene(): Bitmap {
+    val bitmap = Bitmap.createBitmap(900, 1200, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    paint.shader = android.graphics.LinearGradient(
+        0f, 0f, 0f, 1200f,
+        intArrayOf(0xFF3A6EA5.toInt(), 0xFFF2B880.toInt(), 0xFFE07A5F.toInt()),
+        null,
+        android.graphics.Shader.TileMode.CLAMP,
+    )
+    canvas.drawRect(0f, 0f, 900f, 1200f, paint)
+    paint.shader = null
+    paint.color = 0xFFFFE8A3.toInt()
+    canvas.drawCircle(470f, 640f, 108f, paint)
+    paint.color = 0xFF2F4F3A.toInt()
+    canvas.drawRect(0f, 744f, 900f, 1200f, paint)
+    paint.color = 0xFF3E6B48.toInt()
+    canvas.drawCircle(180f, 936f, 450f, paint)
     return bitmap
 }
 

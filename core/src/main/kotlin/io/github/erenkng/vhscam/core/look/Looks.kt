@@ -18,6 +18,20 @@ enum class CaptureMode {
     val films: Boolean get() = this == VIDEO || this == DUAL
 }
 
+/** What one press of the shutter does in photo mode. */
+enum class ShotKind {
+    SINGLE,
+
+    /** Four shots with a countdown, printed as a photobooth strip. */
+    BOOTH,
+
+    /** Two shots on the same frame, like film wound back. */
+    DOUBLE,
+
+    /** Every press adds a frame to an animation. */
+    STOP_MOTION,
+}
+
 /** How looks are grouped when browsing them. */
 enum class LookCategory { HOME_VIDEO, FILM, DIGITAL }
 

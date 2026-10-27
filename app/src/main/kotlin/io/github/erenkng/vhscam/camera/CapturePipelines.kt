@@ -6,8 +6,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Typeface
 import android.net.Uri
 import android.util.Log
@@ -75,7 +79,8 @@ class PhotoPipeline(
 
     /**
      * Develops [photo] with a look into a finished JPEG in the cache, frame and EXIF included,
-     * without saving it anywhere. The caller deletes the file.
+     * without saving it anywhere. The caller deletes the file. The picture is [longEdge]
+     * pixels on its long edge, the look's own size unless asked for smaller.
      */
     suspend fun print(
         photo: CapturedPhoto,
@@ -85,9 +90,10 @@ class PhotoPipeline(
         mirror: Boolean,
         lookAspect: Float,
         capturedAt: LocalDateTime,
+        longEdge: Int = look.stillLongEdge,
     ): File {
         val upright = withContext(Dispatchers.Default) {
-            decodeUpright(photo, neededLongEdge = max(look.stillLongEdge, 1280))
+            decodeUpright(photo, neededLongEdge = max(longEdge, 1280))
         }
         val rendered = stillRenderer.render(
             source = upright,
@@ -95,7 +101,7 @@ class PhotoPipeline(
             osdContent = osd,
             mirror = mirror,
             lookAspect = lookAspect,
-            outputLongEdge = look.stillLongEdge,
+            outputLongEdge = longEdge,
             seedFrame = Random.nextInt(1, 1_000_000),
         )
         upright.recycle()
@@ -115,6 +121,70 @@ class PhotoPipeline(
             writeExif(out, capturedAt)
             out
         }
+    }
+
+    /**
+     * The first shot of a double exposure, small and upright, to lay over the viewfinder while
+     * the second one is framed. [mirror] it for the front camera, whose preview is mirrored.
+     */
+    suspend fun ghost(photo: CapturedPhoto, mirror: Boolean): Bitmap = withContext(Dispatchers.Default) {
+        val upright = decodeUpright(photo, neededLongEdge = GHOST_EDGE)
+        if (mirror) mirrored(upright) else upright
+    }
+
+    /**
+     * Two shots on one frame, the way film takes a double exposure: the light of both adds up
+     * (a screen blend, each a little under). The result is an upright capture that develops
+     * like any other, at least [longEdge] pixels on its long edge.
+     */
+    suspend fun blend(
+        first: CapturedPhoto,
+        second: CapturedPhoto,
+        mirrorFirst: Boolean,
+        mirrorSecond: Boolean,
+        longEdge: Int,
+    ): CapturedPhoto = withContext(Dispatchers.Default) {
+        val edge = max(longEdge, 1280)
+        val a = decodeUpright(first, edge).let { if (mirrorFirst) mirrored(it) else it }
+        val b = decodeUpright(second, edge).let { if (mirrorSecond) mirrored(it) else it }
+        val blended = screenBlend(a, b)
+        a.recycle()
+        b.recycle()
+        val jpeg = ByteArrayOutputStream().use { out ->
+            blended.compress(Bitmap.CompressFormat.JPEG, 95, out)
+            out.toByteArray()
+        }
+        blended.recycle()
+        CapturedPhoto(jpeg, bitmap = null, rotationDegrees = 0, front = false)
+    }
+
+    /** [b] laid over [a] with a screen blend, both a little darker so the result isn't washed out. */
+    private fun screenBlend(a: Bitmap, b: Bitmap): Bitmap {
+        val out = Bitmap.createBitmap(a.width, a.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val under = ColorMatrixColorFilter(ColorMatrix().apply { setScale(EXPOSURE, EXPOSURE, EXPOSURE, 1f) })
+        canvas.drawBitmap(a, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG).apply { colorFilter = under })
+        // The second shot fills the first's frame, centred, even if the phone was turned between them.
+        val scale = max(a.width.toFloat() / b.width, a.height.toFloat() / b.height)
+        val fit = Matrix().apply {
+            postScale(scale, scale)
+            postTranslate((a.width - b.width * scale) / 2f, (a.height - b.height * scale) / 2f)
+        }
+        canvas.drawBitmap(
+            b,
+            fit,
+            Paint(Paint.FILTER_BITMAP_FLAG).apply {
+                colorFilter = under
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+            },
+        )
+        return out
+    }
+
+    private fun mirrored(bitmap: Bitmap): Bitmap {
+        val flipped = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postScale(-1f, 1f) }, true)
+        if (flipped !== bitmap) bitmap.recycle()
+        return flipped
     }
 
     /**
@@ -231,7 +301,10 @@ class PhotoPipeline(
         return strip
     }
 
-    /** Decodes [photo] upright, at least [neededLongEdge] pixels on its long edge where possible. */
+    /**
+     * Decodes [photo] upright, at least [neededLongEdge] pixels on its long edge where possible.
+     * The bitmap is the caller's to recycle; a capture's own bitmap is left alone.
+     */
     fun decodeUpright(photo: CapturedPhoto, neededLongEdge: Int): Bitmap {
         val decoded = photo.bitmap ?: run {
             val jpeg = photo.jpeg ?: error("Empty capture")
@@ -246,19 +319,22 @@ class PhotoPipeline(
             }
             BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, options) ?: error("Cannot decode capture")
         }
+        val ours = decoded !== photo.bitmap
         val longEdge = max(decoded.width, decoded.height)
         val scale = if (longEdge > neededLongEdge * 2) neededLongEdge * 2f / longEdge else 1f
-        if (photo.rotationDegrees == 0 && scale == 1f && decoded.config == Bitmap.Config.ARGB_8888) return decoded
+        if (photo.rotationDegrees == 0 && scale == 1f && decoded.config == Bitmap.Config.ARGB_8888) {
+            return if (ours) decoded else decoded.copy(Bitmap.Config.ARGB_8888, false)
+        }
         val matrix = Matrix().apply {
             postScale(scale, scale)
             postRotate(photo.rotationDegrees.toFloat())
         }
         val rotated = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-        if (rotated !== decoded) decoded.recycle()
-        return if (rotated.config == Bitmap.Config.ARGB_8888) {
+        if (rotated !== decoded && ours) decoded.recycle()
+        return if (rotated.config == Bitmap.Config.ARGB_8888 && (rotated !== decoded || ours)) {
             rotated
         } else {
-            rotated.copy(Bitmap.Config.ARGB_8888, false).also { rotated.recycle() }
+            rotated.copy(Bitmap.Config.ARGB_8888, false).also { if (rotated !== photo.bitmap) rotated.recycle() }
         }
     }
 
@@ -315,6 +391,10 @@ class PhotoPipeline(
         const val PAPER_COLOR = 0xFFF4F1EA.toInt()
         const val INK_COLOR = 0xFF3B3836.toInt()
         const val STRIP_FRAME_EDGE = 900
+        const val GHOST_EDGE = 720
+
+        /** Each exposure of a double exposure gets this much of its light. */
+        const val EXPOSURE = 0.82f
 
         /** Previews use the same grain every time, so only the changes the user makes show. */
         const val PREVIEW_SEED = 4_242
