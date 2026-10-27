@@ -5,9 +5,11 @@ import * as Presets from './presets.js';
 import { drawCamcorderStamp, drawCctvOverlay, drawDigitalStamp, drawFilmStamp, drawVcrOverlay } from './osd.js';
 
 const SHADERS = '../../app/src/main/assets/shaders/';
-const LOOK_ASPECT = { VHS: 4 / 3, CCD: 4 / 3, FILM: 3 / 2, POLAROID: 1, GAMEBOY: 8 / 7, WEBCAM: 4 / 3, CCTV: 4 / 3 };
+const LOOK_ASPECT = {
+  VHS: 4 / 3, SUPER8: 4 / 3, CCD: 4 / 3, FILM: 3 / 2, DISPOSABLE: 3 / 2, POLAROID: 1, GAMEBOY: 8 / 7, WEBCAM: 4 / 3, CCTV: 4 / 3,
+};
 // Height of the working frame per look (mirrors LookSpec.workLines in the app).
-const WORK_LINES = { VHS: 480, GAMEBOY: 112, WEBCAM: 240, CCTV: 288 };
+const WORK_LINES = { VHS: 480, SUPER8: 540, GAMEBOY: 112, WEBCAM: 240, CCTV: 288 };
 const EFFECTS = { NONE: 0, NIGHT: 1, SEPIA: 2, MONO: 3 };
 const UINT_UNIFORMS = new Set(['uFrame']);
 
@@ -51,6 +53,8 @@ export class LookLab {
       webcam: await load('webcam.frag'),
       cctv: await load('cctv.frag'),
       trail: await load('trail.frag'),
+      super8: await load('super8.frag'),
+      disposable: await load('disposable.frag'),
     };
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -173,7 +177,7 @@ export class LookLab {
     const input = this.texture(0, 0, null, image);
     const burned = this.osdTexture(W, H, (ctx, w, h) => {
       if (look === 'VHS' && osd.dateText) drawCamcorderStamp(ctx, w, h, osd);
-      if (look === 'FILM' && osd.filmText) drawFilmStamp(ctx, w, h, osd.filmText);
+      if ((look === 'FILM' || look === 'DISPOSABLE') && osd.filmText) drawFilmStamp(ctx, w, h, osd.filmText);
     });
     const overlay = this.osdTexture(Math.round(720 * aspect), 720, (ctx, w, h) => {
       if (look === 'VHS') drawVcrOverlay(ctx, w, h, { ...osd, speed });
@@ -236,6 +240,21 @@ export class LookLab {
         uBarrel: p.barrel, uHum: p.hum, uTint: p.tint, uVignette: p.vignette,
       }, { uSrc: a.tex });
       scanlines = p.scanlines;
+    } else if (look === 'SUPER8') {
+      const p = { ...Presets.SUPER8, ...overrides };
+      this.draw(this.programs.super8, out, {
+        uSrcSize: [W, H], uScale: H / 540, uFrame: frame, uSaturation: p.saturation, uContrast: p.contrast,
+        uTint: p.tint, uFade: p.fade, uGrain: p.grain, uGrainSize: p.grainSize, uFlicker: p.flicker,
+        uWeave: p.weave, uDust: p.dust, uScratches: p.scratches, uSoftness: p.softness,
+        uVignette: p.vignette, uGate: p.gate,
+      }, { uSrc: a.tex });
+    } else if (look === 'DISPOSABLE') {
+      const p = { ...Presets.DISPOSABLE, ...overrides };
+      this.draw(this.programs.disposable, out, {
+        uSrcSize: [W, H], uScale: H / 1200, uFrame: frame, uFlash: p.flash, uSaturation: p.saturation,
+        uContrast: p.contrast, uShadowTint: p.shadowTint, uHighlightTint: p.highlightTint, uGrain: p.grain,
+        uGrainSize: p.grainSize, uSoftness: p.softness, uFringe: p.fringe, uVignette: p.vignette,
+      }, { uSrc: a.tex });
     } else if (look === 'CCD') {
       const p = Presets.CCD;
       this.draw(this.programs.ccd, out, {

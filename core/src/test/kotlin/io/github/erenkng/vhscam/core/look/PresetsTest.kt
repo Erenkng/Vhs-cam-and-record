@@ -52,8 +52,29 @@ class PresetsTest {
     }
 
     @Test
+    fun super8AndDisposableScaleWithIntensity() {
+        assertEquals(Super8Params(), PhotoLookPresets.super8(0.5f))
+        val clean8 = PhotoLookPresets.super8(0f)
+        assertEquals(0f, clean8.grain)
+        assertEquals(0f, clean8.gate)
+        assertEquals(0f, clean8.weave)
+        assertEquals(1f, PhotoLookPresets.super8(1f).gate)
+        assertEquals(DisposableParams(), PhotoLookPresets.disposable(0.5f))
+        assertEquals(0f, PhotoLookPresets.disposable(0f).flash)
+        assertEquals(1f, PhotoLookPresets.disposable(0f).highlightTintR)
+        assertTrue(PhotoLookPresets.disposable(1f).flash > DisposableParams().flash)
+    }
+
+    @Test
+    fun super8RunsAtEighteenPicturesASecond() {
+        assertEquals(18, Look.SUPER8.pictureRate)
+        assertTrue(Look.SUPER8.video)
+        assertEquals(null, Look.VHS.pictureRate)
+    }
+
+    @Test
     fun videoLooksAreTheOnesThatRecord() {
-        assertEquals(listOf(Look.VHS, Look.GAMEBOY, Look.WEBCAM, Look.CCTV), Look.videoLooks)
+        assertEquals(listOf(Look.VHS, Look.SUPER8, Look.GAMEBOY, Look.WEBCAM, Look.CCTV), Look.videoLooks)
         assertTrue(Look.entries.filter { it.workLines == null }.none { it.video })
         assertTrue(Look.CCTV.holdFrames > Look.WEBCAM.holdFrames)
     }
@@ -64,6 +85,7 @@ class PresetsTest {
         assertEquals("VHS_20261026_090503.mp4", FileNames.video(t))
         assertEquals("CCTV_20261026_090503.mp4", FileNames.video(t, Look.CCTV))
         assertEquals("FILM_20261026_090503.jpg", FileNames.photo(t, Look.FILM))
+        assertEquals("DISPO_20261026_090503.jpg", FileNames.photo(t, Look.DISPOSABLE))
         assertEquals("BOOTH_20261026_090503.jpg", FileNames.strip(t))
         assertEquals("GIF_20261026_090503.gif", FileNames.gif(t))
     }

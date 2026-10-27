@@ -734,8 +734,10 @@ fun CaptureMode.label(): Int = when (this) {
 /** The beach from the onboarding, developed with the look: what the look does, at a glance. */
 fun Look.sample(): Int = when (this) {
     Look.VHS -> R.drawable.onboarding_vhs
+    Look.SUPER8 -> R.drawable.onboarding_super8
     Look.CCD -> R.drawable.onboarding_ccd
     Look.FILM -> R.drawable.onboarding_film
+    Look.DISPOSABLE -> R.drawable.onboarding_disposable
     Look.POLAROID -> R.drawable.onboarding_instant
     Look.GAMEBOY -> R.drawable.onboarding_gameboy
     Look.WEBCAM -> R.drawable.onboarding_webcam
@@ -744,8 +746,10 @@ fun Look.sample(): Int = when (this) {
 
 fun Look.label(): Int = when (this) {
     Look.VHS -> R.string.look_vhs
+    Look.SUPER8 -> R.string.look_super8
     Look.CCD -> R.string.look_ccd
     Look.FILM -> R.string.look_film
+    Look.DISPOSABLE -> R.string.look_disposable
     Look.POLAROID -> R.string.look_polaroid
     Look.GAMEBOY -> R.string.look_gameboy
     Look.WEBCAM -> R.string.look_webcam

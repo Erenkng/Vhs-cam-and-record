@@ -52,3 +52,13 @@ export const CCTV = {
   contrast: 1.45, noise: 0.1, barrel: 0.22, hum: 0.12, tint: [0.92, 1.0, 0.94], vignette: 0.5,
   scanlines: 0.18,
 };
+
+export const SUPER8 = {
+  saturation: 1.18, contrast: 1.14, tint: [1.07, 0.99, 0.86], fade: 0.35, grain: 0.11, grainSize: 1.7,
+  flicker: 0.6, weave: 0.6, dust: 0.6, scratches: 0.5, softness: 0.8, vignette: 0.5, gate: 1.0,
+};
+
+export const DISPOSABLE = {
+  flash: 0.6, saturation: 1.3, contrast: 1.1, shadowTint: [0.9, 1.03, 1.0], highlightTint: [1.06, 1.0, 0.9],
+  grain: 0.1, grainSize: 1.8, softness: 0.7, fringe: 1.2, vignette: 0.5,
+};

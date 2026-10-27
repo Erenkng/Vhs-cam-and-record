@@ -41,6 +41,8 @@ class SettingsRepository(context: Context) {
         val gameBoyIntensity = floatPreferencesKey("gameboy_intensity")
         val webcamIntensity = floatPreferencesKey("webcam_intensity")
         val cctvIntensity = floatPreferencesKey("cctv_intensity")
+        val super8Intensity = floatPreferencesKey("super8_intensity")
+        val disposableIntensity = floatPreferencesKey("disposable_intensity")
         val effect = stringPreferencesKey("effect")
         val fade = booleanPreferencesKey("fade")
         val fadeColor = stringPreferencesKey("fade_color")
@@ -96,6 +98,8 @@ class SettingsRepository(context: Context) {
             gameBoyIntensity = this[Keys.gameBoyIntensity] ?: d.gameBoyIntensity,
             webcamIntensity = this[Keys.webcamIntensity] ?: d.webcamIntensity,
             cctvIntensity = this[Keys.cctvIntensity] ?: d.cctvIntensity,
+            super8Intensity = this[Keys.super8Intensity] ?: d.super8Intensity,
+            disposableIntensity = this[Keys.disposableIntensity] ?: d.disposableIntensity,
             effect = enum(Keys.effect, d.effect),
             fade = this[Keys.fade] ?: d.fade,
             fadeColor = enum(Keys.fadeColor, d.fadeColor),
@@ -148,6 +152,8 @@ class SettingsRepository(context: Context) {
         this[Keys.gameBoyIntensity] = s.gameBoyIntensity
         this[Keys.webcamIntensity] = s.webcamIntensity
         this[Keys.cctvIntensity] = s.cctvIntensity
+        this[Keys.super8Intensity] = s.super8Intensity
+        this[Keys.disposableIntensity] = s.disposableIntensity
         this[Keys.effect] = s.effect.name
         this[Keys.fade] = s.fade
         this[Keys.fadeColor] = s.fadeColor.name

@@ -34,6 +34,8 @@ data class AppSettings(
     val gameBoyIntensity: Float = 0.5f,
     val webcamIntensity: Float = 0.5f,
     val cctvIntensity: Float = 0.5f,
+    val super8Intensity: Float = 0.5f,
+    val disposableIntensity: Float = 0.5f,
     /** Camcorder digital effect, used with the VHS look. */
     val effect: CamcorderEffect = CamcorderEffect.NONE,
     /** Fade in when recording starts or resumes, fade out before it stops or pauses. */

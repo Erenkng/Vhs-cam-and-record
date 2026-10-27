@@ -27,6 +27,8 @@ enum class CaptureMode {
  * @param workLines height of the working frame the look is rendered at, for the looks that get
  *   their character from a low resolution; `null` renders at the output resolution.
  * @param holdFrames the look shows a new picture every this many camera frames (low frame rate).
+ * @param pictureRate the look shows this many pictures a second, whatever the camera's frame
+ *   rate; takes the place of [holdFrames] when set.
  */
 enum class Look(
     val cropAspect: Float?,
@@ -35,10 +37,17 @@ enum class Look(
     val video: Boolean,
     val workLines: Int?,
     val holdFrames: Int = 1,
+    val pictureRate: Int? = null,
 ) {
     VHS(cropAspect = null, stillLongEdge = 1440, filePrefix = "VHS", video = true, workLines = 480),
+
+    /** Super 8 home movie: 18 pictures a second, with the film edge and sprocket hole in view. */
+    SUPER8(cropAspect = 4f / 3f, stillLongEdge = 1440, filePrefix = "SUPER8", video = true, workLines = 540, pictureRate = 18),
     CCD(cropAspect = 4f / 3f, stillLongEdge = 1600, filePrefix = "CCD", video = false, workLines = null),
     FILM(cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "FILM", video = false, workLines = null),
+
+    /** Single-use camera with a flash: shots go on a 27-exposure roll that has to be developed. */
+    DISPOSABLE(cropAspect = 3f / 2f, stillLongEdge = 1800, filePrefix = "DISPO", video = false, workLines = null),
     POLAROID(cropAspect = 1f, stillLongEdge = 1600, filePrefix = "POLA", video = false, workLines = null),
 
     /** 8-bit handheld camera: 128 x 112 pixels in four shades of green, 8x magnified photos. */

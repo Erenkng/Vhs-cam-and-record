@@ -142,6 +142,8 @@
     <string name="look_gameboy">8-bit</string>
     <string name="look_webcam">Webcam</string>
     <string name="look_cctv">CCTV</string>
+    <string name="look_super8">Super 8</string>
+    <string name="look_disposable">Kullan-at</string>
     <string name="effects_button">Kamera efektleri</string>
     <string name="effect_none">Kapalı</string>
     <string name="effect_night">Gece görüşü</string>

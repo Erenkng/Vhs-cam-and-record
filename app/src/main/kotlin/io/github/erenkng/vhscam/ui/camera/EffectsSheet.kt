@@ -322,7 +322,7 @@ private fun LazyListScope.section(title: Int) {
 }
 
 /** Looks that print a date or time into the picture. */
-private val OSD_LOOKS = setOf(Look.VHS, Look.CCD, Look.FILM, Look.CCTV)
+private val OSD_LOOKS = setOf(Look.VHS, Look.CCD, Look.FILM, Look.DISPOSABLE, Look.CCTV)
 
 private class SwitchRow(
     val title: Int,

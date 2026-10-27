@@ -94,6 +94,7 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
     private val textureMatrix = FloatArray(16)
     private val outputMatrix = FloatArray(16)
     private var firstTimestamp = -1L
+    private var lastPictureSlot = -1L
     private var frameCount = 0
     private var released = false
 
@@ -171,6 +172,7 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
         inputTexture = texture
         inputSize = request.resolution
         firstTimestamp = -1L
+        lastPictureSlot = -1L
         lastProcessedKind = null
         sendSignal(false)
     }
@@ -248,8 +250,15 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
         // Low-frame-rate looks and the strobe effect keep showing the last picture for a few
         // frames; the outputs still get every frame so the video keeps its timing.
         val kindKey = listOf(spec.kind, (spec as? LookSpec.Vhs)?.effect)
-        val hold = spec.holdFrames.coerceAtLeast(1)
-        if (kindKey != lastProcessedKind || frameCount % hold == 0 || renderer.resultTarget == null) {
+        val rate = spec.pictureRate
+        val newPicture = if (rate != null) {
+            // A fixed picture rate (Super 8's 18 a second) follows the clock, not the frames.
+            val slot = (seconds * rate).toLong()
+            (slot != lastPictureSlot).also { lastPictureSlot = slot }
+        } else {
+            frameCount % spec.holdFrames.coerceAtLeast(1) == 0
+        }
+        if (kindKey != lastProcessedKind || newPicture || renderer.resultTarget == null) {
             lastProcessedKind = kindKey
             val zoom = current.digitalZoom.coerceAtLeast(1f)
             renderer.process(

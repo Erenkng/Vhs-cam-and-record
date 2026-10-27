@@ -31,6 +31,8 @@ const samples = [
   { name: 'gameboy', look: 'GAMEBOY', outWidth: 512 },
   { name: 'webcam', look: 'WEBCAM' },
   { name: 'cctv', look: 'CCTV' },
+  { name: 'super8', look: 'SUPER8' },
+  { name: 'disposable', look: 'DISPOSABLE' },
   { name: 'vhs_night', look: 'VHS', effect: 'NIGHT', overrides: { lumaNoise: 0.08 } },
   { name: 'vhs_sepia', look: 'VHS', effect: 'SEPIA' },
   { name: 'vhs_mono', look: 'VHS', effect: 'MONO' },

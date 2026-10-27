@@ -24,8 +24,10 @@ object LookFactory {
             speed = settings.tapeSpeed,
             effect = settings.effect,
         )
+        Look.SUPER8 -> LookSpec.Super8(PhotoLookPresets.super8(settings.super8Intensity))
         Look.CCD -> LookSpec.Ccd(PhotoLookPresets.ccd(settings.ccdIntensity))
         Look.FILM -> LookSpec.Film(PhotoLookPresets.film(settings.filmIntensity), seed)
+        Look.DISPOSABLE -> LookSpec.Disposable(PhotoLookPresets.disposable(settings.disposableIntensity))
         Look.POLAROID -> LookSpec.Polaroid(PhotoLookPresets.polaroid(settings.polaroidIntensity), seed)
         Look.GAMEBOY -> LookSpec.GameBoy(PhotoLookPresets.gameBoy(settings.gameBoyIntensity))
         Look.WEBCAM -> LookSpec.Webcam(PhotoLookPresets.webcam(settings.webcamIntensity))
@@ -35,8 +37,10 @@ object LookFactory {
     /** Intensity slider value of a look; VHS uses tape wear instead. */
     fun intensity(settings: AppSettings, look: Look): Float = when (look) {
         Look.VHS -> settings.vhs.wear
+        Look.SUPER8 -> settings.super8Intensity
         Look.CCD -> settings.ccdIntensity
         Look.FILM -> settings.filmIntensity
+        Look.DISPOSABLE -> settings.disposableIntensity
         Look.POLAROID -> settings.polaroidIntensity
         Look.GAMEBOY -> settings.gameBoyIntensity
         Look.WEBCAM -> settings.webcamIntensity
@@ -45,8 +49,10 @@ object LookFactory {
 
     fun withIntensity(settings: AppSettings, look: Look, value: Float): AppSettings = when (look) {
         Look.VHS -> settings.copy(vhs = settings.vhs.copy(wear = value))
+        Look.SUPER8 -> settings.copy(super8Intensity = value)
         Look.CCD -> settings.copy(ccdIntensity = value)
         Look.FILM -> settings.copy(filmIntensity = value)
+        Look.DISPOSABLE -> settings.copy(disposableIntensity = value)
         Look.POLAROID -> settings.copy(polaroidIntensity = value)
         Look.GAMEBOY -> settings.copy(gameBoyIntensity = value)
         Look.WEBCAM -> settings.copy(webcamIntensity = value)
@@ -79,13 +85,14 @@ object LookFactory {
             Look.CCD -> OsdContent(
                 digitalStamp = if (settings.dateStamp) DateStamp.ccdDate(time, settings.dateOrder) else null,
             )
-            Look.FILM -> OsdContent(
+            // The single-use camera gets the same orange data-back date as the 35 mm one.
+            Look.FILM, Look.DISPOSABLE -> OsdContent(
                 filmStamp = if (settings.dateStamp) DateStamp.filmDate(time, settings.dateOrder) else null,
             )
             // A security camera always stamps the time; the toggle only hides it.
             Look.CCTV -> OsdContent(
                 cctvStamp = if (settings.dateStamp) DateStamp.cctvStamp(time, settings.dateOrder) else null,
             )
-            Look.POLAROID, Look.GAMEBOY, Look.WEBCAM -> OsdContent()
+            Look.SUPER8, Look.POLAROID, Look.GAMEBOY, Look.WEBCAM -> OsdContent()
         }
 }

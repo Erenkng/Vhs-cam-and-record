@@ -3,10 +3,12 @@ package io.github.erenkng.vhscam.gl
 import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CcdParams
 import io.github.erenkng.vhscam.core.look.CctvParams
+import io.github.erenkng.vhscam.core.look.DisposableParams
 import io.github.erenkng.vhscam.core.look.FilmParams
 import io.github.erenkng.vhscam.core.look.GameBoyParams
 import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.PolaroidParams
+import io.github.erenkng.vhscam.core.look.Super8Params
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.look.VhsParams
 import io.github.erenkng.vhscam.core.look.WebcamParams
@@ -24,6 +26,9 @@ sealed interface LookSpec {
 
     /** Show a new picture every this many camera frames. */
     val holdFrames: Int get() = kind.holdFrames
+
+    /** Show this many pictures a second instead, whatever the camera's frame rate. */
+    val pictureRate: Int? get() = kind.pictureRate
 
     /**
      * @param glitch 0..1 burst of tape tearing, e.g. right after recording starts.
@@ -60,6 +65,14 @@ sealed interface LookSpec {
 
     data class Webcam(val params: WebcamParams) : LookSpec {
         override val kind get() = Look.WEBCAM
+    }
+
+    data class Super8(val params: Super8Params) : LookSpec {
+        override val kind get() = Look.SUPER8
+    }
+
+    data class Disposable(val params: DisposableParams) : LookSpec {
+        override val kind get() = Look.DISPOSABLE
     }
 
     data class Cctv(val params: CctvParams) : LookSpec {
