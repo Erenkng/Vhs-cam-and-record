@@ -151,6 +151,13 @@
     <string name="look_gameboy">8-bit</string>
     <string name="look_webcam">Webcam</string>
     <string name="look_cctv">CCTV</string>
+    <string name="look_super8">Super 8</string>
+    <string name="look_disposable">Disposable</string>
+    <string name="look_gold">Gold</string>
+    <string name="look_portrait">Portrait</string>
+    <string name="look_cine">Cine 800</string>
+    <string name="look_red_grain">Red Grain</string>
+    <string name="look_redscale">Redscale</string>
     <string name="effects_button">Camcorder effects</string>
     <string name="effect_none">Off</string>
     <string name="effect_night">Night vision</string>
@@ -176,8 +183,6 @@
     <string name="interval_1m">1 min</string>
     <string name="interval_badge">INT REC</string>
     <string name="interval_next">next in %1$d s</string>
-    <string name="booth_on">Photobooth on</string>
-    <string name="booth_off">Photobooth off</string>
     <string name="booth_progress">Shot %1$d of %2$d</string>
     <string name="no_signal">NO SIGNAL</string>
     <string name="dzoom">D.ZOOM</string>
@@ -210,4 +215,93 @@
     <string name="onboarding_3_body">Fader, night vision, sepia and mosaic, digital zoom, interval REC, dual recording and the VCR blue screen.</string>
     <string name="onboarding_4_title">Ready to share</string>
     <string name="onboarding_4_body">Photobooth strips, retro GIFs and changing a photo\'s look later. It all ends up in your Tapes.</string>
+    <string name="looks_title">Looks</string>
+    <plurals name="looks_count">
+        <item quantity="one">%d look</item>
+        <item quantity="other">%d looks</item>
+    </plurals>
+    <string name="looks_open">Show all looks</string>
+    <string name="look_records_video">Records video</string>
+    <string name="category_home_video">Home video</string>
+    <string name="category_film">Film</string>
+    <string name="category_digital">Digital</string>
+    <string name="look_desc_vhs">Camcorder tape: colour bleed, tracking lines and the date.</string>
+    <string name="look_desc_super8">Home movie film: warm colour, flicker and the sprocket hole.</string>
+    <string name="look_desc_film">Compact camera film with light leaks and an orange date.</string>
+    <string name="look_desc_gold">Warm, golden film with rich reds and red grain.</string>
+    <string name="look_desc_portrait">Soft, pastel colour that is kind to skin.</string>
+    <string name="look_desc_cine">Cinema film: teal shadows and a red glow around lights.</string>
+    <string name="look_desc_red_grain">Faded and warm, with heavy red grain.</string>
+    <string name="look_desc_redscale">Film shot through its back: reds, oranges and yellows.</string>
+    <string name="look_desc_disposable">Single-use camera: flash, plastic lens, a roll of 27.</string>
+    <string name="look_desc_polaroid">Instant film: soft, faded colour in a white frame.</string>
+    <string name="look_desc_ccd">Early 2000s digicam: punchy colour and JPEG blocks.</string>
+    <string name="look_desc_gameboy">8-bit handheld camera in four shades of green.</string>
+    <string name="look_desc_webcam">2005 webcam: cold, noisy and blocky.</string>
+    <string name="look_desc_cctv">Security camera: black and white, with the time.</string>
+    <string name="roll_title">Disposable roll</string>
+    <plurals name="roll_left">
+        <item quantity="one">%d shot left</item>
+        <item quantity="other">%d shots left</item>
+    </plurals>
+    <string name="roll_badge">left</string>
+    <string name="roll_send">Send to the lab</string>
+    <string name="roll_at_lab">At the lab</string>
+    <plurals name="roll_prints">
+        <item quantity="one">%d print</item>
+        <item quantity="other">%d prints</item>
+    </plurals>
+    <string name="roll_develop_now">Collect now, without waiting</string>
+    <string name="roll_next_morning">Develop the next morning</string>
+    <string name="roll_next_morning_help">When off, disposable shots go straight to the gallery.</string>
+    <string name="roll_ready_now">Ready</string>
+    <string name="roll_ready_today">Ready today at %1$s</string>
+    <string name="roll_ready_tomorrow">Ready tomorrow at %1$s</string>
+    <string name="roll_ready_on">Ready %1$s</string>
+    <string name="msg_roll_sent">Roll finished and sent to the lab</string>
+    <string name="msg_prints_ready_short">Prints are back from the lab</string>
+    <plurals name="msg_prints_ready">
+        <item quantity="one">%d print is back from the lab</item>
+        <item quantity="other">%d prints are back from the lab</item>
+    </plurals>
+    <plurals name="gallery_at_lab">
+        <item quantity="one">%d print at the lab</item>
+        <item quantity="other">%d prints at the lab</item>
+    </plurals>
+    <plurals name="gallery_in_camera">
+        <item quantity="one">%d shot on the roll in the camera</item>
+        <item quantity="other">%d shots on the roll in the camera</item>
+    </plurals>
+
+    <string name="shot_menu">Shooting mode: %1$s</string>
+    <string name="shot_single">Single photo</string>
+    <string name="shot_single_desc">One press, one photo</string>
+    <string name="shot_booth">Photobooth</string>
+    <string name="shot_booth_desc">Four shots on one strip</string>
+    <string name="shot_double">Double exposure</string>
+    <string name="shot_double_desc">Two shots on one frame</string>
+    <string name="shot_stop_motion">Stop-motion</string>
+    <string name="shot_stop_motion_desc">Frame by frame into a video</string>
+    <string name="shutter_frame">Add a frame</string>
+    <string name="exposure_step">Exposure %1$d/2</string>
+    <string name="exposure_cancel">Throw away the first exposure</string>
+    <plurals name="reel_frames">
+        <item quantity="one">%d frame</item>
+        <item quantity="other">%d frames</item>
+    </plurals>
+    <string name="reel_length">%1$s s</string>
+    <string name="reel_rate">%1$d fps</string>
+    <string name="reel_rate_title">Frames per second</string>
+    <string name="reel_undo">Take back the last frame</string>
+    <string name="reel_more">More options</string>
+    <string name="reel_discard">Delete all frames</string>
+    <string name="reel_discard_title">Delete the animation?</string>
+    <plurals name="reel_discard_body">
+        <item quantity="one">Its %d frame will be deleted.</item>
+        <item quantity="other">All %d frames will be deleted.</item>
+    </plurals>
+    <string name="reel_save">Save</string>
+    <string name="busy_animation">Making the animation…</string>
+    <string name="msg_animation_saved">Animation saved</string>
+    <string name="msg_animation_failed">Could not save the animation</string>
 </resources>

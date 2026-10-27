@@ -6,8 +6,10 @@ import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.FadeColor
 import io.github.erenkng.vhscam.core.look.IntervalSetting
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.look.VhsAdjustments
+import io.github.erenkng.vhscam.core.media.StopMotion
 import io.github.erenkng.vhscam.core.osd.ClockStyle
 import io.github.erenkng.vhscam.core.osd.DateOrder
 
@@ -28,12 +30,8 @@ data class AppSettings(
     val videoLook: Look = Look.VHS,
     val tapeSpeed: TapeSpeed = TapeSpeed.SP,
     val vhs: VhsAdjustments = VhsAdjustments(),
-    val ccdIntensity: Float = 0.5f,
-    val filmIntensity: Float = 0.5f,
-    val polaroidIntensity: Float = 0.5f,
-    val gameBoyIntensity: Float = 0.5f,
-    val webcamIntensity: Float = 0.5f,
-    val cctvIntensity: Float = 0.5f,
+    /** Strength of each look, 0..1, where 0.5 is the look as designed. VHS uses [vhs] wear. */
+    val intensities: Map<Look, Float> = emptyMap(),
     /** Camcorder digital effect, used with the VHS look. */
     val effect: CamcorderEffect = CamcorderEffect.NONE,
     /** Fade in when recording starts or resumes, fade out before it stops or pauses. */
@@ -42,10 +40,14 @@ data class AppSettings(
     /** Tapes start with a second of the VCR's blue screen. */
     val blueIntro: Boolean = true,
     val interval: IntervalSetting = IntervalSetting.OFF,
-    /** Photo mode takes a four-shot photobooth strip. */
-    val booth: Boolean = false,
+    /** What the shutter does in photo mode: one shot, a photobooth strip, a double exposure... */
+    val shot: ShotKind = ShotKind.SINGLE,
+    /** Stop-motion pictures a second, one of [StopMotion.RATES]. */
+    val stopMotionRate: Int = StopMotion.DEFAULT_RATE,
     /** Keep the untouched photo so its look can be changed later. */
     val keepOriginals: Boolean = true,
+    /** Single-use camera shots wait for the roll to be developed the next morning. */
+    val disposableNextMorning: Boolean = true,
     val onboardingDone: Boolean = false,
     val aspect: AspectSetting = AspectSetting.RATIO_4_3,
     val videoQuality: VideoQuality = VideoQuality.HD,
@@ -66,4 +68,10 @@ data class AppSettings(
     val shutterSound: Boolean = true,
     val haptics: Boolean = true,
     val dynamicColor: Boolean = true,
-)
+) {
+    fun intensity(look: Look): Float = intensities[look] ?: DEFAULT_INTENSITY
+
+    companion object {
+        const val DEFAULT_INTENSITY = 0.5f
+    }
+}

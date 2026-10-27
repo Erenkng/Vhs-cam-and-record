@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,17 +56,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.erenkng.vhscam.R
+import kotlin.math.abs
+import kotlin.math.ceil
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
-import kotlin.math.abs
-import kotlin.math.ceil
 
 /**
  * A camera-style dial: the options scroll sideways and the one in the middle is chosen.
- * Flinging snaps to an option; tapping one scrolls it in. With [live] the choice follows the
- * finger while dragging (for values with an instant preview), otherwise it lands when the
- * scrolling stops.
+ * Flinging snaps to an option; tapping one scrolls it in, and tapping the chosen one calls
+ * [onSelectedClick]. With [live] the choice follows the finger while dragging (for values with
+ * an instant preview), otherwise it lands when the scrolling stops.
  */
 @Composable
 fun <T> SnapDial(
@@ -76,6 +79,7 @@ fun <T> SnapDial(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     live: Boolean = false,
+    onSelectedClick: (() -> Unit)? = null,
     item: @Composable (option: T, selected: Boolean, onClick: () -> Unit) -> Unit,
 ) {
     val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
@@ -163,6 +167,8 @@ fun <T> SnapDial(
                         if (enabled && option != selected) {
                             haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                             onSelect(option)
+                        } else if (enabled) {
+                            onSelectedClick?.invoke()
                         }
                     }
                 }
@@ -232,7 +238,8 @@ private fun DialItem(text: String, selected: Boolean, enabled: Boolean, onClick:
 
 /**
  * Round thumbnails of what each option looks like, with its name under it, like a camera's
- * filter picker. The chosen one grows and gets a ring.
+ * filter picker. The chosen one grows and gets a ring; with [onSelectedClick] it also gets a
+ * small grid badge, and tapping it opens the full list.
  */
 @Composable
 fun <T> ThumbnailDial(
@@ -243,38 +250,66 @@ fun <T> ThumbnailDial(
     label: @Composable (T) -> String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onSelectedClick: (() -> Unit)? = null,
+    selectedClickLabel: String? = null,
 ) {
-    SnapDial(options, selected, onSelect, itemWidth = 68.dp, height = 74.dp, modifier = modifier, enabled = enabled) { option, chosen, onClick ->
+    SnapDial(
+        options, selected, onSelect, itemWidth = 68.dp, height = 74.dp, modifier = modifier, enabled = enabled,
+        onSelectedClick = onSelectedClick,
+    ) { option, chosen, onClick ->
         val motion = MaterialTheme.motionScheme
         val colors = MaterialTheme.colorScheme
         val grow by animateFloatAsState(if (chosen) 1f else 0f, motion.fastSpatialSpec(), label = "grow")
         val ring by animateColorAsState(if (chosen) colors.primary else Color.White.copy(alpha = 0.25f), motion.defaultEffectsSpec(), label = "ring")
+        val badge by animateFloatAsState(if (chosen && onSelectedClick != null) 1f else 0f, motion.fastSpatialSpec(), label = "badge")
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(5.dp),
             modifier = Modifier
-                .clickable(enabled = enabled, onClick = onClick)
+                .clickable(
+                    enabled = enabled,
+                    onClickLabel = selectedClickLabel.takeIf { chosen && onSelectedClick != null },
+                    onClick = onClick,
+                )
                 .semantics {
                     role = Role.RadioButton
                     this.selected = chosen
                 },
         ) {
-            Image(
-                painter = painterResource(image(option)),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .graphicsLayer {
-                        val scale = 0.84f + 0.16f * grow
-                        scaleX = scale
-                        scaleY = scale
-                        alpha = if (enabled) 1f else 0.5f
-                    }
-                    .size(48.dp)
-                    .border(if (chosen) 2.5.dp else 1.dp, ring, CircleShape)
-                    .padding(if (chosen) 4.dp else 0.dp)
-                    .clip(CircleShape),
-            )
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Image(
+                    painter = painterResource(image(option)),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .graphicsLayer {
+                            val scale = 0.84f + 0.16f * grow
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = if (enabled) 1f else 0.5f
+                        }
+                        .size(48.dp)
+                        .border(if (chosen) 2.5.dp else 1.dp, ring, CircleShape)
+                        .padding(if (chosen) 4.dp else 0.dp)
+                        .clip(CircleShape),
+                )
+                // The chosen look opens the whole list.
+                Icon(
+                    painterResource(R.drawable.ic_grid_view),
+                    contentDescription = null,
+                    tint = colors.onPrimary,
+                    modifier = Modifier
+                        .offset(x = 3.dp, y = 2.dp)
+                        .graphicsLayer {
+                            scaleX = badge
+                            scaleY = badge
+                            alpha = badge
+                        }
+                        .size(18.dp)
+                        .background(colors.primary, CircleShape)
+                        .padding(3.dp),
+                )
+            }
             Text(
                 text = label(option),
                 style = if (chosen) MaterialTheme.typography.labelMediumEmphasized else MaterialTheme.typography.labelMedium,

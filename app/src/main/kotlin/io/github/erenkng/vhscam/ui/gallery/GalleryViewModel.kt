@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.erenkng.vhscam.AppContainer
 import io.github.erenkng.vhscam.media.CapturedMedia
+import io.github.erenkng.vhscam.media.RollState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,10 +40,15 @@ class GalleryViewModel(private val container: AppContainer) : ViewModel() {
     private val _messages = MutableSharedFlow<GalleryMessage>(extraBufferCapacity = 4)
     val messages: SharedFlow<GalleryMessage> = _messages.asSharedFlow()
 
+    /** The single-use camera's rolls, shown at the top while they are at the lab. */
+    val rolls: StateFlow<RollState> = container.rolls.state
+
     init {
         viewModelScope.launch {
             media.version.collect { _items.value = media.loadAll() }
         }
+        // Prints that are ready come out when the gallery opens.
+        container.appScope.launch { container.rolls.develop() }
     }
 
     fun delete(item: CapturedMedia) {
