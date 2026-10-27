@@ -209,7 +209,6 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
         val current = state
         if (outputs.isEmpty() || current == null) return
         st.getTransformMatrix(textureMatrix)
-        val surfaceTransform = Affine2.fromGlMatrix(textureMatrix)
 
         val timestamp = st.timestamp
         if (firstTimestamp < 0) firstTimestamp = timestamp
@@ -229,7 +228,6 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
         first.updateTransformMatrix(outputMatrix, textureMatrix)
         val mapping = withLookCrop(
             OrientationMath.fit(
-                surfaceTexture = surfaceTransform,
                 output = Affine2.fromGlMatrix(outputMatrix),
                 bufferWidth = inputSize.width,
                 bufferHeight = inputSize.height,
@@ -273,7 +271,6 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
             output.updateTransformMatrix(outputMatrix, textureMatrix)
             val outputMapping = withLookCrop(
                 OrientationMath.fit(
-                    surfaceTexture = surfaceTransform,
                     output = Affine2.fromGlMatrix(outputMatrix),
                     bufferWidth = inputSize.width,
                     bufferHeight = inputSize.height,

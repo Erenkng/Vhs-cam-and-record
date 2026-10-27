@@ -22,22 +22,28 @@ data class UprightMapping(
 object OrientationMath {
 
     /**
-     * @param surfaceTexture the SurfaceTexture transform: buffer uv -> texture coordinates.
-     * @param output the transform from `SurfaceOutput.updateTransformMatrix`, which is
-     *   `surfaceTexture ∘ additional` where `additional` maps output uv -> buffer uv.
-     * @param bufferWidth width of the camera buffer, in buffer orientation.
-     * @param bufferHeight height of the camera buffer, in buffer orientation.
+     * The work happens in the camera buffer as the sensor wrote it ("raw" uv, y up), which the
+     * texture stores upside down: texture = [FLIP_Y] of raw uv. The SurfaceTexture transform is
+     * not used for this on purpose: on top of that flip it usually carries the camera's own
+     * rotation to the phone's natural orientation (and the selfie mirror), which CameraX
+     * predicts from the sensor orientation. Treating that rotated space as the sensor's turned
+     * the processing frame a second time, so date stamps and tape lines came out sideways.
+     *
+     * @param output the transform from `SurfaceOutput.updateTransformMatrix`: output uv ->
+     *   texture coordinates (CameraX's crop, rotation and mirroring included).
+     * @param bufferWidth width of the camera buffer, in sensor orientation.
+     * @param bufferHeight height of the camera buffer, in sensor orientation.
      * @param sensorRotationDegrees clockwise rotation that makes the buffer image upright for the
      *   device's physical orientation (`CameraInfo.getSensorRotationDegrees(physicalRotation)`).
      */
     fun fit(
-        surfaceTexture: Affine2,
         output: Affine2,
         bufferWidth: Int,
         bufferHeight: Int,
         sensorRotationDegrees: Int,
     ): UprightMapping {
-        val additional = surfaceTexture.inverse() * output
+        // Output uv -> raw buffer uv.
+        val additional = FLIP_Y.inverse() * output
 
         // Region of the buffer that this output shows (CameraX crop / view port).
         val xs = floatArrayOf(
@@ -67,7 +73,7 @@ object OrientationMath {
             cropHeightPx / cropWidthPx
         }
         return UprightMapping(
-            uprightToTexture = surfaceTexture * uprightToBuffer,
+            uprightToTexture = FLIP_Y * uprightToBuffer,
             outputToUpright = uprightToBuffer.inverse() * additional,
             uprightAspect = aspect,
             mirrored = mirrored,
@@ -96,4 +102,7 @@ object OrientationMath {
 
     /** Horizontal flip of the unit square. */
     val MIRROR_U = Affine2(a = -1f, e = 1f)
+
+    /** Vertical flip of the unit square: raw buffer uv (y up) <-> texture coordinates. */
+    val FLIP_Y = Affine2(d = -1f, f = 1f)
 }
