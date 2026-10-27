@@ -1,7 +1,9 @@
 package io.github.erenkng.vhscam.ui.camera
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -25,10 +27,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,6 +60,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -73,12 +77,12 @@ import io.github.erenkng.vhscam.ui.components.AppSlider
 import io.github.erenkng.vhscam.ui.components.FocusIndicator
 import io.github.erenkng.vhscam.ui.components.GridOverlay
 import io.github.erenkng.vhscam.ui.components.RecordingBadge
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.drop
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 
 /**
  * The viewfinder, edge to edge at the top of the available space: camera picture cropped to
@@ -315,7 +319,8 @@ private fun ExposureControl(state: CameraUiState, actions: CameraActions) {
 }
 
 /**
- * 0.5× / 1× / 2× / 5× buttons, limited to what the lens can do. [ratio] is the zoom the user
+ * 0.5× / 1× / 2× / 5× buttons, limited to what the lens can do, like a phone camera's: round
+ * buttons in a round pill, the active one filled and showing "×". [ratio] is the zoom the user
  * sees, digital zoom included; the active button shows it when it is between presets.
  */
 @Composable
@@ -330,33 +335,50 @@ private fun ZoomPresets(zoom: ZoomInfo, ratio: Float, rotation: Float, onZoom: (
     }
     if (presets.size < 2) return
     val haptics = LocalHapticFeedback.current
+    val motion = MaterialTheme.motionScheme
     // The active preset is the largest one not above the current zoom.
     val active = presets.lastOrNull { it <= ratio + 0.01f } ?: presets.first()
     Surface(
         modifier = modifier,
         shape = CircleShape,
-        color = Color.Black.copy(alpha = 0.35f),
+        color = Color.Black.copy(alpha = 0.38f),
     ) {
         Row(
-            modifier = Modifier.padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(ZoomPillPadding),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             presets.forEach { preset ->
                 val selected = preset == active
-                val label = if (selected && abs(ratio - preset) > 0.05f) ratio else preset
-                FilledTonalIconToggleButton(
-                    checked = selected,
-                    onCheckedChange = {
-                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                        onZoom(preset)
-                    },
-                    shapes = IconButtonDefaults.toggleableShapes(),
-                    modifier = Modifier.size(if (selected) 44.dp else 36.dp),
+                val label = formatZoom(if (selected && abs(ratio - preset) > 0.05f) ratio else preset)
+                val description = stringResource(R.string.zoom_value, label)
+                // Same size touch target for every button; only the disc inside grows.
+                val disc by animateDpAsState(if (selected) ZoomButtonSize else 34.dp, motion.fastSpatialSpec(), label = "disc")
+                val fill by animateColorAsState(
+                    if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    motion.defaultEffectsSpec(),
+                    label = "fill",
+                )
+                Box(
+                    modifier = Modifier
+                        .size(ZoomButtonSize)
+                        .clip(CircleShape)
+                        .selectable(
+                            selected = selected,
+                            role = Role.Tab,
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                onZoom(preset)
+                            },
+                        )
+                        .semantics { contentDescription = description },
+                    contentAlignment = Alignment.Center,
                 ) {
+                    Box(Modifier.size(disc).background(fill, CircleShape))
                     Text(
-                        text = stringResource(R.string.zoom_value, formatZoom(label)),
+                        text = if (selected) description else label,
                         style = if (selected) MaterialTheme.typography.labelLargeEmphasized else MaterialTheme.typography.labelMedium,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else Color.White,
                         modifier = Modifier.rotate(rotation),
                     )
                 }
@@ -364,6 +386,10 @@ private fun ZoomPresets(zoom: ZoomInfo, ratio: Float, rotation: Float, onZoom: (
         }
     }
 }
+
+/** Zoom buttons are round and sit concentric with the pill's round ends. */
+private val ZoomButtonSize = 44.dp
+private val ZoomPillPadding = 4.dp
 
 private fun formatZoom(value: Float): String =
     if (abs(value - value.roundToInt()) < 0.05f) value.roundToInt().toString() else String.format(Locale.US, "%.1f", value)
