@@ -26,6 +26,8 @@ import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.IntervalSetting
 import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.media.CapturedMedia
+import io.github.erenkng.vhscam.media.LabRoll
+import io.github.erenkng.vhscam.media.RollState
 import io.github.erenkng.vhscam.settings.AppSettings
 import io.github.erenkng.vhscam.ui.camera.BoothUi
 import io.github.erenkng.vhscam.ui.camera.CameraActions
@@ -38,6 +40,7 @@ import io.github.erenkng.vhscam.ui.camera.IntervalUi
 import io.github.erenkng.vhscam.ui.camera.LookBrowserContent
 import io.github.erenkng.vhscam.ui.camera.ProSetting
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
+import io.github.erenkng.vhscam.ui.camera.RollContent
 import io.github.erenkng.vhscam.ui.gallery.GalleryContent
 import io.github.erenkng.vhscam.ui.onboarding.OnboardingContent
 import io.github.erenkng.vhscam.ui.permission.PermissionContent
@@ -244,6 +247,39 @@ class ScreenshotTest {
                 signal = true,
                 zoom = ZoomInfo(ratio = 1f, min = 0.6f, max = 10f),
                 capabilities = CameraCapabilities(hasFlash = true),
+            ),
+            actions = CameraActions(),
+            viewfinder = { FakeScene(it) },
+        )
+    }
+
+    @Test
+    fun rollSheet() = capture("18_roll_sheet") {
+        val now = 1_793_000_000_000L
+        VhsCamTheme(darkTheme = true, dynamicColor = false) {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                RollContent(
+                    roll = RollState(inCamera = 12, atLab = listOf(LabRoll("roll_1", 27, now + 86_400_000L))),
+                    nextMorning = true,
+                    onSend = {},
+                    onDevelopNow = {},
+                    onNextMorning = {},
+                    nowMillis = now,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun cameraDisposableRoll() = capture("19_camera_disposable_roll") {
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.DISPOSABLE),
+                settingsLoaded = true,
+                signal = true,
+                zoom = ZoomInfo(ratio = 1f, min = 1f, max = 8f),
+                capabilities = CameraCapabilities(hasFlash = true),
+                roll = RollState(inCamera = 3),
             ),
             actions = CameraActions(),
             viewfinder = { FakeScene(it) },

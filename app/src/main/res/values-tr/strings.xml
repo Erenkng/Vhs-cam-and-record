@@ -232,4 +232,37 @@
     <string name="look_desc_gameboy">Dört yeşil tonlu 8-bit el konsolu kamerası.</string>
     <string name="look_desc_webcam">2005 webcam\'i: soğuk, karıncalı ve bloklu.</string>
     <string name="look_desc_cctv">Güvenlik kamerası: siyah-beyaz, saat damgalı.</string>
+    <string name="roll_title">Kullan-at rulo</string>
+    <plurals name="roll_left">
+        <item quantity="one">%d poz kaldı</item>
+        <item quantity="other">%d poz kaldı</item>
+    </plurals>
+    <string name="roll_badge">poz</string>
+    <string name="roll_send">Banyoya gönder</string>
+    <string name="roll_at_lab">Banyoda</string>
+    <plurals name="roll_prints">
+        <item quantity="one">%d fotoğraf</item>
+        <item quantity="other">%d fotoğraf</item>
+    </plurals>
+    <string name="roll_develop_now">Beklemeden çıkar</string>
+    <string name="roll_next_morning">Ertesi sabah banyo</string>
+    <string name="roll_next_morning_help">Kapalıyken kullan-at fotoğrafları hemen galeriye düşer.</string>
+    <string name="roll_ready_now">Hazır</string>
+    <string name="roll_ready_today">Hazır: bugün %1$s</string>
+    <string name="roll_ready_tomorrow">Hazır: yarın %1$s</string>
+    <string name="roll_ready_on">Hazır: %1$s</string>
+    <string name="msg_roll_sent">Rulo bitti, banyoya gönderildi</string>
+    <string name="msg_prints_ready_short">Fotoğraflar banyodan çıktı</string>
+    <plurals name="msg_prints_ready">
+        <item quantity="one">%d fotoğraf banyodan çıktı</item>
+        <item quantity="other">%d fotoğraf banyodan çıktı</item>
+    </plurals>
+    <plurals name="gallery_at_lab">
+        <item quantity="one">Banyoda %d fotoğraf</item>
+        <item quantity="other">Banyoda %d fotoğraf</item>
+    </plurals>
+    <plurals name="gallery_in_camera">
+        <item quantity="one">Makinedeki rulo: %d poz</item>
+        <item quantity="other">Makinedeki rulo: %d poz</item>
+    </plurals>
 </resources>

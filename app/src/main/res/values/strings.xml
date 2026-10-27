@@ -241,4 +241,37 @@
     <string name="look_desc_gameboy">8-bit handheld camera in four shades of green.</string>
     <string name="look_desc_webcam">2005 webcam: cold, noisy and blocky.</string>
     <string name="look_desc_cctv">Security camera: black and white, with the time.</string>
+    <string name="roll_title">Disposable roll</string>
+    <plurals name="roll_left">
+        <item quantity="one">%d shot left</item>
+        <item quantity="other">%d shots left</item>
+    </plurals>
+    <string name="roll_badge">left</string>
+    <string name="roll_send">Send to the lab</string>
+    <string name="roll_at_lab">At the lab</string>
+    <plurals name="roll_prints">
+        <item quantity="one">%d print</item>
+        <item quantity="other">%d prints</item>
+    </plurals>
+    <string name="roll_develop_now">Collect now, without waiting</string>
+    <string name="roll_next_morning">Develop the next morning</string>
+    <string name="roll_next_morning_help">When off, disposable shots go straight to the gallery.</string>
+    <string name="roll_ready_now">Ready</string>
+    <string name="roll_ready_today">Ready today at %1$s</string>
+    <string name="roll_ready_tomorrow">Ready tomorrow at %1$s</string>
+    <string name="roll_ready_on">Ready %1$s</string>
+    <string name="msg_roll_sent">Roll finished and sent to the lab</string>
+    <string name="msg_prints_ready_short">Prints are back from the lab</string>
+    <plurals name="msg_prints_ready">
+        <item quantity="one">%d print is back from the lab</item>
+        <item quantity="other">%d prints are back from the lab</item>
+    </plurals>
+    <plurals name="gallery_at_lab">
+        <item quantity="one">%d print at the lab</item>
+        <item quantity="other">%d prints at the lab</item>
+    </plurals>
+    <plurals name="gallery_in_camera">
+        <item quantity="one">%d shot on the roll in the camera</item>
+        <item quantity="other">%d shots on the roll in the camera</item>
+    </plurals>
 </resources>

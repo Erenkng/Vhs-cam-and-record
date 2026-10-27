@@ -5,6 +5,7 @@ import io.github.erenkng.vhscam.audio.TapeAudioExporter
 import io.github.erenkng.vhscam.camera.PhotoPipeline
 import io.github.erenkng.vhscam.camera.VideoPipeline
 import io.github.erenkng.vhscam.gl.StillRenderer
+import io.github.erenkng.vhscam.media.FilmRollStore
 import io.github.erenkng.vhscam.media.GifMaker
 import io.github.erenkng.vhscam.media.MediaRepository
 import io.github.erenkng.vhscam.media.OriginalsStore
@@ -29,6 +30,7 @@ class AppContainer(context: Context) {
     val photoPipeline = PhotoPipeline(context, stillRenderer, media, originals)
     val videoPipeline = VideoPipeline(context, TapeAudioExporter(context), media)
     val gifMaker = GifMaker(context, media)
+    val rolls = FilmRollStore(context, media, originals)
 
     private val _hardwareShutter = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 

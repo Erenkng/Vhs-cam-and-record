@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -45,12 +47,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.media.CapturedMedia
+import io.github.erenkng.vhscam.media.RollState
+import io.github.erenkng.vhscam.ui.camera.readyLabel
 import io.github.erenkng.vhscam.ui.components.formatElapsed
 
 @Composable
 fun GalleryScreen(viewModel: GalleryViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit) {
     val items by viewModel.items.collectAsStateWithLifecycle()
-    GalleryContent(items = items, onBack = onBack, onOpen = onOpen)
+    val rolls by viewModel.rolls.collectAsStateWithLifecycle()
+    GalleryContent(items = items, onBack = onBack, onOpen = onOpen, rolls = rolls)
 }
 
 /** "Tapes": a grid of everything VHS Cam saved. */
@@ -60,6 +65,7 @@ fun GalleryContent(
     onBack: () -> Unit,
     onOpen: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    rolls: RollState = RollState(),
     thumbnail: @Composable (CapturedMedia, Modifier) -> Unit = { item, m ->
         AsyncImage(model = item.uri, contentDescription = item.displayName, contentScale = ContentScale.Crop, modifier = m)
     },
@@ -87,7 +93,10 @@ fun GalleryContent(
             items == null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 LoadingIndicator(Modifier.size(64.dp))
             }
-            items.isEmpty() -> EmptyTapes(Modifier.fillMaxSize().padding(padding))
+            items.isEmpty() -> Column(Modifier.fillMaxSize().padding(padding)) {
+                if (rolls.hasFilm) RollsCard(rolls, Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                EmptyTapes(Modifier.fillMaxWidth().weight(1f))
+            }
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(112.dp),
                 contentPadding = PaddingValues(
@@ -99,6 +108,9 @@ fun GalleryContent(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                if (rolls.hasFilm) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "rolls") { RollsCard(rolls) }
+                }
                 itemsIndexed(items, key = { _, item -> item.uri.toString() }) { index, item ->
                     Thumbnail(item, thumbnail) { onOpen(index) }
                 }
@@ -132,6 +144,42 @@ private fun Thumbnail(item: CapturedMedia, image: @Composable (CapturedMedia, Mo
                     Text(
                         formatElapsed(item.durationMillis),
                         style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Single-use camera prints still at the lab, and shots still on the roll in the camera. */
+@Composable
+private fun RollsCard(rolls: RollState, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_camera_roll), contentDescription = null, modifier = Modifier.size(28.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                val atLab = rolls.atLab.sumOf { it.shots }
+                val first = rolls.atLab.firstOrNull()
+                if (first != null) {
+                    Text(
+                        pluralStringResource(R.plurals.gallery_at_lab, atLab, atLab),
+                        style = MaterialTheme.typography.titleSmallEmphasized,
+                    )
+                    Text(readyLabel(first.readyAtMillis), style = MaterialTheme.typography.bodyMedium)
+                }
+                if (rolls.inCamera > 0) {
+                    Text(
+                        pluralStringResource(R.plurals.gallery_in_camera, rolls.inCamera, rolls.inCamera),
+                        style = if (first == null) MaterialTheme.typography.titleSmallEmphasized else MaterialTheme.typography.bodyMedium,
                     )
                 }
             }

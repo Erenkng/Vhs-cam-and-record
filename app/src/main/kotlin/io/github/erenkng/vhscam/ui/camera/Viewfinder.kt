@@ -102,6 +102,7 @@ fun ViewfinderPanel(
     modifier: Modifier = Modifier,
     coveredTop: Dp = 0.dp,
     coveredBottom: Dp = 0.dp,
+    onOpenRoll: () -> Unit = {},
 ) {
     val settings = state.settings
     val motion = MaterialTheme.motionScheme
@@ -241,6 +242,13 @@ fun ViewfinderPanel(
                         var lastBooth by remember { mutableStateOf(state.booth) }
                         SideEffect { if (state.booth != null) lastBooth = state.booth }
                         (state.booth ?: lastBooth)?.let { BoothProgress(it) }
+                    }
+                    AnimatedVisibility(
+                        visible = state.onRoll && state.booth == null,
+                        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    ) {
+                        RollBadge(left = state.roll.left, onClick = onOpenRoll)
                     }
                 }
 

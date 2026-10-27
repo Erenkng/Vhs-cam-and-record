@@ -45,6 +45,7 @@ class SettingsRepository(context: Context) {
         val interval = stringPreferencesKey("interval")
         val booth = booleanPreferencesKey("booth")
         val keepOriginals = booleanPreferencesKey("keep_originals")
+        val disposableNextMorning = booleanPreferencesKey("disposable_next_morning")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
         val tapeSpeed = stringPreferencesKey("tape_speed")
         val wear = floatPreferencesKey("vhs_wear")
@@ -98,6 +99,7 @@ class SettingsRepository(context: Context) {
             interval = enum(Keys.interval, d.interval),
             booth = this[Keys.booth] ?: d.booth,
             keepOriginals = this[Keys.keepOriginals] ?: d.keepOriginals,
+            disposableNextMorning = this[Keys.disposableNextMorning] ?: d.disposableNextMorning,
             onboardingDone = this[Keys.onboardingDone] ?: d.onboardingDone,
             tapeSpeed = enum(Keys.tapeSpeed, d.tapeSpeed),
             vhs = VhsAdjustments(
@@ -145,6 +147,7 @@ class SettingsRepository(context: Context) {
         this[Keys.interval] = s.interval.name
         this[Keys.booth] = s.booth
         this[Keys.keepOriginals] = s.keepOriginals
+        this[Keys.disposableNextMorning] = s.disposableNextMorning
         this[Keys.onboardingDone] = s.onboardingDone
         this[Keys.tapeSpeed] = s.tapeSpeed.name
         this[Keys.wear] = s.vhs.wear

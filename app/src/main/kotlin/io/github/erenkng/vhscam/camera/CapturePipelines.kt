@@ -57,6 +57,35 @@ class PhotoPipeline(
         capturedAtMillis: Long,
         keepOriginal: Boolean = false,
     ): Uri {
+        val file = print(photo, look, spec, osd, mirror, lookAspect, capturedAt)
+        val uri = try {
+            media.savePhoto(file, FileNames.photo(capturedAt, look), capturedAtMillis)
+        } finally {
+            file.delete()
+        }
+        if (keepOriginal) {
+            try {
+                originals.save(ContentUris.parseId(uri), photo, mirror, capturedAtMillis)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not keep the original", e)
+            }
+        }
+        return uri
+    }
+
+    /**
+     * Develops [photo] with a look into a finished JPEG in the cache, frame and EXIF included,
+     * without saving it anywhere. The caller deletes the file.
+     */
+    suspend fun print(
+        photo: CapturedPhoto,
+        look: Look,
+        spec: LookSpec,
+        osd: OsdContent,
+        mirror: Boolean,
+        lookAspect: Float,
+        capturedAt: LocalDateTime,
+    ): File {
         val upright = withContext(Dispatchers.Default) {
             decodeUpright(photo, neededLongEdge = max(look.stillLongEdge, 1280))
         }
@@ -71,7 +100,7 @@ class PhotoPipeline(
         )
         upright.recycle()
 
-        val file = withContext(Dispatchers.IO) {
+        return withContext(Dispatchers.IO) {
             val finished = framed(rendered, spec)
             val quality = when (spec) {
                 is LookSpec.Ccd -> spec.params.jpegQuality
@@ -86,19 +115,6 @@ class PhotoPipeline(
             writeExif(out, capturedAt)
             out
         }
-        val uri = try {
-            media.savePhoto(file, FileNames.photo(capturedAt, look), capturedAtMillis)
-        } finally {
-            file.delete()
-        }
-        if (keepOriginal) {
-            try {
-                originals.save(ContentUris.parseId(uri), photo, mirror, capturedAtMillis)
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not keep the original", e)
-            }
-        }
-        return uri
     }
 
     /**

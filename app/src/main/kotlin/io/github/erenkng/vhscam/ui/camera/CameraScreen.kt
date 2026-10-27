@@ -81,11 +81,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.Morph
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -135,6 +138,8 @@ class CameraActions(
     val onEffect: (CamcorderEffect) -> Unit = {},
     val onIso: (Int?) -> Unit = {},
     val onShutterSpeed: (Long?) -> Unit = {},
+    val onSendRoll: () -> Unit = {},
+    val onDevelopNow: () -> Unit = {},
 )
 
 @Composable
@@ -177,8 +182,12 @@ fun CameraScreen(onOpenGallery: () -> Unit, onOpenSettings: () -> Unit) {
             onEffect = viewModel::setEffect,
             onIso = viewModel::setIso,
             onShutterSpeed = viewModel::setShutter,
+            onSendRoll = viewModel::sendRoll,
+            onDevelopNow = viewModel::developNow,
         )
     }
+    // Prints may have come back from the lab while the camera was away.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.developRolls() }
 
     CameraContent(state = state, actions = actions) { modifier ->
         surfaceRequest?.let { request ->
@@ -229,12 +238,19 @@ private fun CameraLayout(
 ) {
     var showEffects by rememberSaveable { mutableStateOf(false) }
     var showLooks by rememberSaveable { mutableStateOf(false) }
+    var showRoll by rememberSaveable { mutableStateOf(false) }
     var showEffectRow by rememberSaveable { mutableStateOf(effectRowOpen) }
     var proSetting by rememberSaveable { mutableStateOf(initialProSetting) }
     val effectRowVisible = showEffectRow && state.activeLook == Look.VHS
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val messageText = state.message?.let { stringResource(it.label()) }
+    val messageText = state.message?.let { message ->
+        if (message == CameraMessage.PRINTS_READY) {
+            pluralStringResource(R.plurals.msg_prints_ready, state.developed, state.developed)
+        } else {
+            stringResource(message.label())
+        }
+    }
     LaunchedEffect(state.message) {
         val text = messageText ?: return@LaunchedEffect
         actions.onMessageShown()
@@ -273,6 +289,7 @@ private fun CameraLayout(
                 coveredTop = if (effectRowHeight > 0.dp) EffectRowGap + effectRowHeight else 0.dp,
                 coveredBottom = controlsHeight,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
+                onOpenRoll = { showRoll = true },
             )
         }
 
@@ -333,6 +350,9 @@ private fun CameraLayout(
     if (showEffects) {
         EffectsSheet(state = state, actions = actions, onDismiss = { showEffects = false })
     }
+    if (showRoll) {
+        RollSheet(state = state, actions = actions, onDismiss = { showRoll = false })
+    }
     if (showLooks) {
         LookBrowserSheet(
             options = if (state.isFilming) Look.videoLooks else Look.entries,
@@ -349,6 +369,8 @@ private fun CameraMessage.label(): Int = when (this) {
     CameraMessage.RECORDING_FAILED -> R.string.msg_recording_failed
     CameraMessage.CAMERA_ERROR -> R.string.msg_camera_error
     CameraMessage.DUAL_UNAVAILABLE -> R.string.msg_dual_unavailable
+    CameraMessage.ROLL_SENT -> R.string.msg_roll_sent
+    CameraMessage.PRINTS_READY -> R.string.msg_prints_ready_short
 }
 
 /** A flat row of icons, spread across the top like the phone's own camera. */

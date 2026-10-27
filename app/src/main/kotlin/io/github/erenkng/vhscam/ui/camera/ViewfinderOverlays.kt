@@ -199,3 +199,43 @@ fun BoothProgress(booth: BoothUi, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** The single-use camera's frame counter, like the little window on top of one: shots left. */
+@Composable
+fun RollBadge(left: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.5f),
+        contentColor = Color.White,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_camera_roll),
+                contentDescription = null,
+                tint = CameraColors.Amber,
+                modifier = Modifier.size(16.dp),
+            )
+            // Counts down like the number wheel of a real one.
+            AnimatedContent(
+                targetState = left,
+                transitionSpec = {
+                    (slideInVertically { -it / 2 } + fadeIn()) togetherWith (slideOutVertically { it / 2 } + fadeOut())
+                },
+                label = "rollLeft",
+            ) { shots ->
+                Text(
+                    text = shots.toString(),
+                    style = MaterialTheme.typography.labelLargeEmphasized.copy(fontFeatureSettings = "tnum"),
+                    color = CameraColors.Amber,
+                )
+            }
+            Text(text = stringResource(R.string.roll_badge), style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}

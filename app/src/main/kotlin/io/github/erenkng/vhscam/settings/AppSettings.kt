@@ -42,6 +42,8 @@ data class AppSettings(
     val booth: Boolean = false,
     /** Keep the untouched photo so its look can be changed later. */
     val keepOriginals: Boolean = true,
+    /** Single-use camera shots wait for the roll to be developed the next morning. */
+    val disposableNextMorning: Boolean = true,
     val onboardingDone: Boolean = false,
     val aspect: AspectSetting = AspectSetting.RATIO_4_3,
     val videoQuality: VideoQuality = VideoQuality.HD,

@@ -41,6 +41,8 @@ import io.github.erenkng.vhscam.core.media.FileNames
 import io.github.erenkng.vhscam.gl.LiveRenderState
 import io.github.erenkng.vhscam.gl.VhsSurfaceProcessor
 import io.github.erenkng.vhscam.media.CapturedMedia
+import io.github.erenkng.vhscam.media.Original
+import io.github.erenkng.vhscam.media.RollState
 import io.github.erenkng.vhscam.settings.AppSettings
 import io.github.erenkng.vhscam.settings.FlashSetting
 import io.github.erenkng.vhscam.settings.TimerSetting
@@ -81,7 +83,19 @@ data class BoothUi(val shot: Int, val total: Int)
 data class IntervalUi(val nextInSeconds: Int?)
 
 /** Snackbar messages. A saved photo needs none: the gallery thumbnail pops in instead. */
-enum class CameraMessage { VIDEO_SAVED, CAPTURE_FAILED, RECORDING_FAILED, CAMERA_ERROR, DUAL_UNAVAILABLE }
+enum class CameraMessage {
+    VIDEO_SAVED,
+    CAPTURE_FAILED,
+    RECORDING_FAILED,
+    CAMERA_ERROR,
+    DUAL_UNAVAILABLE,
+
+    /** The single-use camera's roll is full and went to the lab. */
+    ROLL_SENT,
+
+    /** Prints came back from the lab; how many is in [CameraUiState.developed]. */
+    PRINTS_READY,
+}
 
 /** Session-defining settings; a change requires binding the camera again. */
 data class BindKey(val mode: CaptureMode, val front: Boolean, val aspect: AspectSetting?, val quality: VideoQuality?)
@@ -117,6 +131,10 @@ data class CameraUiState(
     val signal: Boolean = false,
     val booth: BoothUi? = null,
     val interval: IntervalUi? = null,
+    /** The single-use camera's film: shots on the roll and rolls at the lab. */
+    val roll: RollState = RollState(),
+    /** Prints that came back from the lab last time, for the message. */
+    val developed: Int = 0,
 ) {
     val isRecording: Boolean get() = recording is RecordingUi.Active
     val isFilming: Boolean get() = settings.mode.films
@@ -128,6 +146,10 @@ data class CameraUiState(
 
     /** Zoom as the user sees it: the camera's zoom times the digital zoom. */
     val effectiveZoom: Float get() = zoom.ratio * digitalZoom
+
+    /** Photos go on the single-use camera's roll instead of straight into the gallery. */
+    val onRoll: Boolean
+        get() = settings.mode.takesPhotos && settings.photoLook == Look.DISPOSABLE && settings.disposableNextMorning
 
     /** Like 90s camcorders, the VHS look keeps zooming digitally past the lens. */
     val digitalZoomAvailable: Boolean get() = activeLook == Look.VHS
@@ -199,6 +221,7 @@ class CameraViewModel(
             }
         }
         viewModelScope.launch { container.media.latest.collect { m -> _state.update { it.copy(latest = m) } } }
+        viewModelScope.launch { container.rolls.state.collect { r -> _state.update { it.copy(roll = r) } } }
         viewModelScope.launch { container.media.loadAll() }
         viewModelScope.launch { container.hardwareShutter.collect { onShutter() } }
         viewModelScope.launch {
@@ -327,15 +350,27 @@ class CameraViewModel(
             val osd = LookFactory.osd(settings, look, LookFactory.clockTime(settings, nowMillis), 0L)
             val lookAspect = LookFactory.photoAspect(settings, look)
             val mirror = photo.front && settings.mirrorSelfies
+            val toRoll = look == Look.DISPOSABLE && settings.disposableNextMorning
             // Developing continues if the user leaves the camera meanwhile.
             container.appScope.launch {
                 developing++
                 refreshBusy()
                 val result = runCatching {
-                    container.photoPipeline.develop(
-                        photo, look, spec, osd, mirror, lookAspect, capturedAt, nowMillis,
-                        keepOriginal = settings.keepOriginals,
-                    )
+                    if (toRoll) {
+                        // The print waits on the roll; it shows up in the gallery once developed.
+                        val print = container.photoPipeline.print(photo, look, spec, osd, mirror, lookAspect, capturedAt)
+                        try {
+                            val original = Original(photo, mirror, nowMillis).takeIf { settings.keepOriginals }
+                            if (container.rolls.addShot(print, nowMillis, original) != null) message(CameraMessage.ROLL_SENT)
+                        } finally {
+                            print.delete()
+                        }
+                    } else {
+                        container.photoPipeline.develop(
+                            photo, look, spec, osd, mirror, lookAspect, capturedAt, nowMillis,
+                            keepOriginal = settings.keepOriginals,
+                        )
+                    }
                 }
                 developing--
                 refreshBusy()
@@ -669,6 +704,25 @@ class CameraViewModel(
     }
 
     fun toggleTorch() = engine.setTorch(!_state.value.torchOn)
+
+    /** Takes the single-use camera's roll to the lab before it is full. */
+    fun sendRoll() {
+        container.appScope.launch { if (container.rolls.sendToLab() != null) message(CameraMessage.ROLL_SENT) }
+    }
+
+    /** Collects every roll from the lab now, ready or not. */
+    fun developNow() = developRolls(everything = true)
+
+    /** Brings back the rolls that are ready; called whenever the camera comes back on screen. */
+    fun developRolls(everything: Boolean = false) {
+        container.appScope.launch {
+            val developed = container.rolls.develop(everything = everything)
+            if (developed > 0) {
+                _state.update { it.copy(developed = developed) }
+                message(CameraMessage.PRINTS_READY)
+            }
+        }
+    }
 
     fun setFlash(flash: FlashSetting) {
         engine.setFlash(flash)
