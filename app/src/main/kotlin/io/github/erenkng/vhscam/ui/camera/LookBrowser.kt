@@ -102,10 +102,11 @@ fun LookBrowserContent(options: List<Look>, selected: Look, onSelect: (Look) -> 
             }
         }
         sections.forEach { (category, looks) ->
-            item(span = { GridItemSpan(maxLineSpan) }, key = category.name) {
+            // Keys must not clash: the film category and the 35 mm film look share a name.
+            item(span = { GridItemSpan(maxLineSpan) }, key = "category_${category.name}") {
                 CategoryHeader(category, count = looks.size)
             }
-            items(looks, key = { it.name }) { look ->
+            items(looks, key = { "look_${it.name}" }) { look ->
                 LookCard(look = look, selected = look == selected, onClick = { onSelect(look) })
             }
         }
