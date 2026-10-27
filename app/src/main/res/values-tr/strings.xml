@@ -208,4 +208,28 @@
     <string name="onboarding_3_body">Fader, gece görüşü, sepya ve mozaik, dijital zoom, aralıklı kayıt, çift çekim ve VCR mavi ekranı.</string>
     <string name="onboarding_4_title">Paylaşmaya hazır</string>
     <string name="onboarding_4_body">Fotokabin şeritleri, retro GIF\'ler ve fotoğrafın stilini sonradan değiştirme. Hepsi Kasetler\'de.</string>
+    <string name="looks_title">Stiller</string>
+    <plurals name="looks_count">
+        <item quantity="one">%d stil</item>
+        <item quantity="other">%d stil</item>
+    </plurals>
+    <string name="looks_open">Tüm stilleri göster</string>
+    <string name="look_records_video">Video çeker</string>
+    <string name="category_home_video">Ev videosu</string>
+    <string name="category_film">Film</string>
+    <string name="category_digital">Dijital</string>
+    <string name="look_desc_vhs">Kamera kaseti: renk taşması, tracking çizgileri ve tarih.</string>
+    <string name="look_desc_super8">Ev filmi: sıcak renkler, titreşim ve film deliği.</string>
+    <string name="look_desc_film">Kompakt makine filmi; ışık sızıntısı ve turuncu tarih.</string>
+    <string name="look_desc_gold">Sıcak, altın tonlu film; canlı kırmızılar ve kırmızı gren.</string>
+    <string name="look_desc_portrait">Yumuşak, pastel renkler; tene çok yakışır.</string>
+    <string name="look_desc_cine">Sinema filmi: camgöbeği gölgeler, ışıkların etrafında kırmızı parlama.</string>
+    <string name="look_desc_red_grain">Soluk ve sıcak; yoğun kırmızı gren.</string>
+    <string name="look_desc_redscale">Ters takılmış film: kırmızı, turuncu ve sarı.</string>
+    <string name="look_desc_disposable">Kullan-at makine: flaş, plastik lens, 27 pozluk rulo.</string>
+    <string name="look_desc_polaroid">Anında film: beyaz çerçevede yumuşak, soluk renkler.</string>
+    <string name="look_desc_ccd">2000\'lerin dijital makinesi: canlı renk, JPEG blokları.</string>
+    <string name="look_desc_gameboy">Dört yeşil tonlu 8-bit el konsolu kamerası.</string>
+    <string name="look_desc_webcam">2005 webcam\'i: soğuk, karıncalı ve bloklu.</string>
+    <string name="look_desc_cctv">Güvenlik kamerası: siyah-beyaz, saat damgalı.</string>
 </resources>

@@ -228,6 +228,7 @@ private fun CameraLayout(
     viewfinder: @Composable (Modifier) -> Unit,
 ) {
     var showEffects by rememberSaveable { mutableStateOf(false) }
+    var showLooks by rememberSaveable { mutableStateOf(false) }
     var showEffectRow by rememberSaveable { mutableStateOf(effectRowOpen) }
     var proSetting by rememberSaveable { mutableStateOf(initialProSetting) }
     val effectRowVisible = showEffectRow && state.activeLook == Look.VHS
@@ -295,6 +296,7 @@ private fun CameraLayout(
             iconRotation = iconRotation,
             proSetting = proSetting,
             onProSetting = { setting -> proSetting = if (proSetting == setting) null else setting },
+            onOpenLooks = { showLooks = true },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -330,6 +332,14 @@ private fun CameraLayout(
 
     if (showEffects) {
         EffectsSheet(state = state, actions = actions, onDismiss = { showEffects = false })
+    }
+    if (showLooks) {
+        LookBrowserSheet(
+            options = if (state.isFilming) Look.videoLooks else Look.entries,
+            selected = state.activeLook,
+            onSelect = { look -> actions.onSettingsChange { if (state.isFilming) it.copy(videoLook = look) else it.copy(photoLook = look) } },
+            onDismiss = { showLooks = false },
+        )
     }
 }
 
@@ -549,6 +559,7 @@ private fun BottomControls(
     iconRotation: Float,
     proSetting: ProSetting?,
     onProSetting: (ProSetting) -> Unit,
+    onOpenLooks: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val motion = MaterialTheme.motionScheme
@@ -580,6 +591,8 @@ private fun BottomControls(
                         image = { it.sample() },
                         label = { stringResource(it.label()) },
                         enabled = !state.isRecording && state.booth == null,
+                        onSelectedClick = onOpenLooks,
+                        selectedClickLabel = stringResource(R.string.looks_open),
                     )
                 }
             }

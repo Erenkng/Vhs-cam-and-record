@@ -217,4 +217,28 @@
     <string name="onboarding_3_body">Fader, night vision, sepia and mosaic, digital zoom, interval REC, dual recording and the VCR blue screen.</string>
     <string name="onboarding_4_title">Ready to share</string>
     <string name="onboarding_4_body">Photobooth strips, retro GIFs and changing a photo\'s look later. It all ends up in your Tapes.</string>
+    <string name="looks_title">Looks</string>
+    <plurals name="looks_count">
+        <item quantity="one">%d look</item>
+        <item quantity="other">%d looks</item>
+    </plurals>
+    <string name="looks_open">Show all looks</string>
+    <string name="look_records_video">Records video</string>
+    <string name="category_home_video">Home video</string>
+    <string name="category_film">Film</string>
+    <string name="category_digital">Digital</string>
+    <string name="look_desc_vhs">Camcorder tape: colour bleed, tracking lines and the date.</string>
+    <string name="look_desc_super8">Home movie film: warm colour, flicker and the sprocket hole.</string>
+    <string name="look_desc_film">Compact camera film with light leaks and an orange date.</string>
+    <string name="look_desc_gold">Warm, golden film with rich reds and red grain.</string>
+    <string name="look_desc_portrait">Soft, pastel colour that is kind to skin.</string>
+    <string name="look_desc_cine">Cinema film: teal shadows and a red glow around lights.</string>
+    <string name="look_desc_red_grain">Faded and warm, with heavy red grain.</string>
+    <string name="look_desc_redscale">Film shot through its back: reds, oranges and yellows.</string>
+    <string name="look_desc_disposable">Single-use camera: flash, plastic lens, a roll of 27.</string>
+    <string name="look_desc_polaroid">Instant film: soft, faded colour in a white frame.</string>
+    <string name="look_desc_ccd">Early 2000s digicam: punchy colour and JPEG blocks.</string>
+    <string name="look_desc_gameboy">8-bit handheld camera in four shades of green.</string>
+    <string name="look_desc_webcam">2005 webcam: cold, noisy and blocky.</string>
+    <string name="look_desc_cctv">Security camera: black and white, with the time.</string>
 </resources>

@@ -35,6 +35,7 @@ import io.github.erenkng.vhscam.ui.camera.EffectsSheetContent
 import io.github.erenkng.vhscam.ui.camera.FocusStatus
 import io.github.erenkng.vhscam.ui.camera.FocusUi
 import io.github.erenkng.vhscam.ui.camera.IntervalUi
+import io.github.erenkng.vhscam.ui.camera.LookBrowserContent
 import io.github.erenkng.vhscam.ui.camera.ProSetting
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
 import io.github.erenkng.vhscam.ui.gallery.GalleryContent
@@ -223,6 +224,30 @@ class ScreenshotTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun lookBrowser() = capture("16_look_browser") {
+        VhsCamTheme(darkTheme = true, dynamicColor = false) {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                LookBrowserContent(options = Look.entries, selected = Look.RED_GRAIN, onSelect = {})
+            }
+        }
+    }
+
+    @Test
+    fun cameraFilmStock() = capture("17_camera_film_stock") {
+        CameraContent(
+            state = CameraUiState(
+                settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.CINE),
+                settingsLoaded = true,
+                signal = true,
+                zoom = ZoomInfo(ratio = 1f, min = 0.6f, max = 10f),
+                capabilities = CameraCapabilities(hasFlash = true),
+            ),
+            actions = CameraActions(),
+            viewfinder = { FakeScene(it) },
+        )
     }
 
     @Test
