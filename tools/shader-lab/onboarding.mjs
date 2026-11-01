@@ -21,6 +21,7 @@ if (process.env.SCENE_PNG) fs.writeFileSync(process.env.SCENE_PNG, Buffer.from(s
 const osd = {
   timeText: '6:42 PM', dateText: 'AUG.14 1998', play: true, counter: '0:12:07',
   ccdText: '2004/08/14 18:42', filmText: "'98 8 14", cctvText: '14-08-1998 18:42:07',
+  timecode: '0:00:12:05', receiptDate: '14.08.1998  18:42',
 };
 const samples = [
   { name: 'vhs', look: 'VHS', speed: 'SP' },
@@ -38,10 +39,24 @@ const samples = [
   { name: 'cine', look: 'CINE' },
   { name: 'red_grain', look: 'RED_GRAIN' },
   { name: 'redscale', look: 'REDSCALE' },
-  { name: 'vhs_night', look: 'VHS', effect: 'NIGHT', overrides: { lumaNoise: 0.08 } },
-  { name: 'vhs_sepia', look: 'VHS', effect: 'SEPIA' },
-  { name: 'vhs_mono', look: 'VHS', effect: 'MONO' },
-  { name: 'vhs_mosaic', look: 'VHS', mosaic: 12 },
+  { name: 'minidv', look: 'MINIDV' },
+  { name: 'nightshot', look: 'NIGHTSHOT' },
+  { name: 'crt', look: 'CRT' },
+  { name: 'silver', look: 'SILVER' },
+  { name: 'aerochrome', look: 'AEROCHROME' },
+  { name: 'cross', look: 'CROSS' },
+  { name: 'slide', look: 'SLIDE' },
+  { name: 'mavica', look: 'MAVICA' },
+  { name: 'flip', look: 'FLIP' },
+  // Print dots are crisp only at whole multiples of the 384 dot head.
+  { name: 'thermal', look: 'THERMAL', outWidth: 768 },
+  // The camcorder effects, without the VCR's text: the onboarding draws a live camcorder
+  // display over them, so the digital zoom moves only the picture.
+  { name: 'fx_none', look: 'VHS', osd: {} },
+  { name: 'fx_night', look: 'VHS', effect: 'NIGHT', overrides: { lumaNoise: 0.08 }, osd: {} },
+  { name: 'fx_sepia', look: 'VHS', effect: 'SEPIA', osd: {} },
+  { name: 'fx_mono', look: 'VHS', effect: 'MONO', osd: {} },
+  { name: 'fx_mosaic', look: 'VHS', mosaic: 12, osd: {} },
 ];
 for (const sample of samples) {
   const url = await page.evaluate((opts) => window.renderToDataUrl(opts), {
@@ -51,4 +66,11 @@ for (const sample of samples) {
   fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
   console.log('wrote', path.relative(repo, file), fs.statSync(file).size, 'bytes');
 }
+// The double exposure mode's card among the film looks.
+await page.addScriptTag({ url: '/tools/shader-lab/thumbs.js', type: 'module' });
+await page.waitForFunction(() => window.doubleExposureDataUrl);
+const double = await page.evaluate((o) => window.doubleExposureDataUrl({ osd: o }), osd);
+const doubleFile = path.join(outDir, 'onboarding_double.webp');
+fs.writeFileSync(doubleFile, Buffer.from(double.split(',')[1], 'base64'));
+console.log('wrote', path.relative(repo, doubleFile), fs.statSync(doubleFile).size, 'bytes');
 await close();

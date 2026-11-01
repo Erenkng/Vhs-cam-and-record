@@ -72,13 +72,11 @@ import androidx.compose.ui.unit.dp
 import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.camera.DeviceOrientation
 import io.github.erenkng.vhscam.camera.LookFactory
-import io.github.erenkng.vhscam.camera.ZoomInfo
 import io.github.erenkng.vhscam.core.look.AspectSetting
 import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.ui.components.AppSlider
 import io.github.erenkng.vhscam.ui.components.FocusIndicator
 import io.github.erenkng.vhscam.ui.components.GridOverlay
-import io.github.erenkng.vhscam.ui.components.RecordingBadge
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -89,12 +87,13 @@ import kotlinx.coroutines.flow.drop
 /**
  * The viewfinder, edge to edge at the top of the available space: camera picture cropped to
  * the current look's frame, plus tap/long-press focus, pinch zoom, grid, focus ring, exposure
- * slider, zoom presets and the REC badge.
+ * slider and the badges for what the shutter is doing. Nothing sits over the bottom of the
+ * picture, where the looks print their dates; the zoom buttons live under it.
+ *
+ * Text never turns with the phone (it would hang sideways); only icons turn, in place.
  *
  * @param coveredTop height of the controls drawn over the top of this space (the camcorder
- *   effect buttons); the REC badge and friends stay below them.
- * @param coveredBottom height of the controls drawn over the bottom of this space; the zoom
- *   buttons stay above them.
+ *   effect buttons); the badges stay below them.
  */
 @Composable
 fun ViewfinderPanel(
@@ -103,7 +102,6 @@ fun ViewfinderPanel(
     viewfinder: @Composable (Modifier) -> Unit,
     modifier: Modifier = Modifier,
     coveredTop: Dp = 0.dp,
-    coveredBottom: Dp = 0.dp,
     onOpenRoll: () -> Unit = {},
 ) {
     val settings = state.settings
@@ -134,9 +132,6 @@ fun ViewfinderPanel(
 
     BoxWithConstraints(modifier, contentAlignment = Alignment.TopCenter) {
         val widthLimited = maxWidth / maxHeight < animatedBox
-        val previewHeight = if (widthLimited) maxWidth / animatedBox else maxHeight
-        // How much of the picture's bottom the controls cover.
-        val covered = (previewHeight - (maxHeight - coveredBottom)).coerceAtLeast(0.dp)
         Box(
             Modifier
                 .aspectRatio(animatedBox, matchHeightConstraintsFirst = !widthLimited)
@@ -192,10 +187,6 @@ fun ViewfinderPanel(
 
             ShutterBlink(state.shutterCount)
 
-            if (settings.grid) {
-                GridOverlay(Modifier.fillMaxSize().clip(CenteredCropShape(animatedCrop, 0.dp)))
-            }
-
             state.focus?.let { focus ->
                 val half = with(LocalDensity.current) { 38.dp.toPx() }
                 Column(
@@ -222,7 +213,10 @@ fun ViewfinderPanel(
             }
 
             // The controls sit inside the look's crop, so a square or 8-bit frame doesn't cut them off.
-            CropBox(animatedCrop, coveredTop, covered) { cropCoveredTop, cropCovered ->
+            CropBox(animatedCrop, coveredTop) { cropCoveredTop ->
+                // Thirds of the picture the look keeps, not of the whole camera frame.
+                if (settings.grid) GridOverlay(Modifier.fillMaxSize())
+
                 AnimatedVisibility(
                     visible = state.focus != null && state.exposure.supported,
                     enter = fadeIn(),
@@ -232,20 +226,12 @@ fun ViewfinderPanel(
                     ExposureControl(state, actions)
                 }
 
+                // The REC counter sits in the top bar; these badges stay level however the phone is held.
                 Column(
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp + cropCoveredTop).rotate(iconRotation),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp + cropCoveredTop),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val active = state.recording as? RecordingUi.Active
-                    if (active != null) {
-                        RecordingBadge(
-                            elapsedMillis = active.elapsedMillis,
-                            // Interval REC pauses between snippets by itself; that isn't a pause to report.
-                            paused = active.paused && state.interval == null,
-                            pausedLabel = stringResource(R.string.paused),
-                        )
-                    }
                     AnimatedVisibility(
                         visible = state.interval != null,
                         enter = fadeIn() + expandVertically(motion.fastSpatialSpec()),
@@ -285,29 +271,20 @@ fun ViewfinderPanel(
                     }
                 }
 
-                // In the middle, so it reads the right way up however the phone is held.
                 AnimatedVisibility(
                     visible = state.digitalZoomAvailable && (zooming || state.digitalZoom > 1f),
                     enter = fadeIn(tween(90)),
                     exit = fadeOut(tween(400)),
                     modifier = Modifier.align(Alignment.Center),
                 ) {
+                    val main = state.mainZoom
                     CamcorderZoomBar(
                         zoom = state.effectiveZoom,
-                        min = state.zoom.min,
-                        lensMax = state.zoom.max,
-                        max = state.zoom.max * CameraViewModel.DIGITAL_ZOOM_MAX,
-                        modifier = Modifier.rotate(iconRotation),
+                        min = minOf(main.min, state.capabilities.wideLens?.ratio ?: main.min),
+                        lensMax = main.max,
+                        max = main.max * CameraViewModel.DIGITAL_ZOOM_MAX,
                     )
                 }
-
-                ZoomPresets(
-                    zoom = state.zoom,
-                    ratio = state.effectiveZoom,
-                    rotation = iconRotation,
-                    onZoom = actions.onZoom,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp + cropCovered),
-                )
             }
         }
     }
@@ -315,22 +292,20 @@ fun ViewfinderPanel(
 
 /**
  * A box the size of a centred crop with [aspect] (width / height) of the available space.
- * [content] gets how much of the crop's top and bottom are covered, given [coveredTop] and
- * [coveredBottom] for the whole space.
+ * [content] gets how much of the crop's top is covered, given [coveredTop] for the whole space.
  */
 @Composable
 private fun CropBox(
     aspect: Float,
     coveredTop: Dp,
-    coveredBottom: Dp,
-    content: @Composable BoxScope.(top: Dp, bottom: Dp) -> Unit,
+    content: @Composable BoxScope.(top: Dp) -> Unit,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val boxAspect = maxWidth / maxHeight
         val (width, height) = if (aspect < boxAspect) maxHeight * aspect to maxHeight else maxWidth to maxWidth / aspect
         val margin = (maxHeight - height) / 2
         Box(Modifier.size(width, height)) {
-            content((coveredTop - margin).coerceAtLeast(0.dp), (coveredBottom - margin).coerceAtLeast(0.dp))
+            content((coveredTop - margin).coerceAtLeast(0.dp))
         }
     }
 }
@@ -360,20 +335,14 @@ private fun ExposureControl(state: CameraUiState, actions: CameraActions) {
 }
 
 /**
- * 0.5× / 1× / 2× / 5× buttons, limited to what the lens can do, like a phone camera's: round
- * buttons in a round pill, the active one filled and showing "×". [ratio] is the zoom the user
- * sees, digital zoom included; the active button shows it when it is between presets.
+ * 0.5× / 1× / 2× / 5× buttons like a phone camera's: round buttons in a round pill, the active
+ * one filled and showing "×". [presets] are what the lenses can do (see
+ * [CameraUiState.zoomPresets]); [ratio] is the zoom the user sees, digital zoom included, and
+ * the active button shows it when it is between presets. The numbers turn in place with the
+ * phone, like icons.
  */
 @Composable
-private fun ZoomPresets(zoom: ZoomInfo, ratio: Float, rotation: Float, onZoom: (Float) -> Unit, modifier: Modifier = Modifier) {
-    val presets = remember(zoom.min, zoom.max) {
-        buildList {
-            if (zoom.min < 0.95f) add(zoom.min)
-            add(1f)
-            if (zoom.max >= 2f) add(2f)
-            if (zoom.max >= 5f) add(5f)
-        }
-    }
+fun ZoomPresets(presets: List<Float>, ratio: Float, rotation: Float, onZoom: (Float) -> Unit, modifier: Modifier = Modifier) {
     if (presets.size < 2) return
     val haptics = LocalHapticFeedback.current
     val motion = MaterialTheme.motionScheme

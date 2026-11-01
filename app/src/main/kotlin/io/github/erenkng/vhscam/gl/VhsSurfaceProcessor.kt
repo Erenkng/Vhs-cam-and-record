@@ -1,6 +1,7 @@
 package io.github.erenkng.vhscam.gl
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
 import android.opengl.EGLSurface
 import android.opengl.GLES11Ext
@@ -18,6 +19,8 @@ import androidx.core.util.Consumer
 import io.github.erenkng.vhscam.core.geometry.Affine2
 import io.github.erenkng.vhscam.core.geometry.OrientationMath
 import io.github.erenkng.vhscam.core.geometry.UprightMapping
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.Executor
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -98,6 +101,11 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
     private var frameCount = 0
     private var released = false
 
+    /** A still of the next frame, asked for by [snapshot]; GL thread only. */
+    private var stillRequest: StillRequest? = null
+
+    private class StillRequest(val longEdge: Int, val onResult: (Bitmap?) -> Unit)
+
     /** Adds a few frames of tape tearing, like a camcorder starting or resuming a recording. */
     fun triggerGlitch(frames: Int = 9) {
         glitchFrames = frames
@@ -115,6 +123,15 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
     private fun fadeLevel(now: Long): Float {
         val t = ((now - fadeStartNanos).toFloat() / fadeDurationNanos).coerceIn(0f, 1f)
         return fadeFrom + (fadeTo - fadeFrom) * t
+    }
+
+    /**
+     * Reads the next frame the way the recording gets it, look and on-screen display included,
+     * upright and [longEdge] pixels on its long edge. [onResult] runs on the main thread, with
+     * null when the frame couldn't be read.
+     */
+    fun snapshot(longEdge: Int, onResult: (Bitmap?) -> Unit) {
+        handler.post { stillRequest = StillRequest(longEdge, onResult) }
     }
 
     /** Shows the VCR blue screen with "PLAY" for [durationMillis], then cuts in with a glitch. */
@@ -308,8 +325,50 @@ class VhsSurfaceProcessor(private val context: Context) : SurfaceProcessor {
             }
         }
         core.makeDefaultCurrent()
+        stillRequest?.let { request ->
+            stillRequest = null
+            val still = try {
+                readStill(renderer, spec, osd, current.osdMirror, fx, mapping.uprightAspect, request.longEdge)
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Could not read the frame", e)
+                null
+            }
+            mainHandler.post { request.onResult(still) }
+        }
         frameCount++
         sendSignal(true)
+    }
+
+    /**
+     * The processed frame as a bitmap, top row first. A selfie video is mirrored after the
+     * effect, so with [mirror] the still is too (and the pre-mirrored text reads right again).
+     */
+    private fun readStill(
+        renderer: LookRenderer,
+        spec: LookSpec,
+        osd: OsdLayers,
+        mirror: Boolean,
+        fx: PresentFx,
+        aspect: Float,
+        longEdge: Int,
+    ): Bitmap {
+        val (width, height) = if (aspect >= 1f) {
+            longEdge to max(4, (longEdge / aspect).roundToInt())
+        } else {
+            max(4, (longEdge * aspect).roundToInt()) to longEdge
+        }
+        val target = RenderTarget(width, height)
+        try {
+            val toUpright = if (mirror) Affine2(a = -1f, d = -1f, e = 1f, f = 1f) else Affine2(d = -1f, f = 1f)
+            renderer.present(toUpright, width, height, spec, osd, osdMirror = mirror, peaking = 0f, target = target, fx = fx)
+            val pixels = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder())
+            GLES30.glReadPixels(0, 0, width, height, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, pixels)
+            pixels.rewind()
+            return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(pixels) }
+        } finally {
+            target.release()
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
     }
 
     /** Restricts the upright frame to a centred crop with the look's aspect ratio. */

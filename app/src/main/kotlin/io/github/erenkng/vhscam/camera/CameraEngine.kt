@@ -84,7 +84,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-data class ZoomInfo(val ratio: Float = 1f, val min: Float = 1f, val max: Float = 1f)
+/**
+ * The bound camera's zoom. [lens] is how wide that camera sees against the phone's main
+ * camera: 1 for the main camera, below 1 for an ultra-wide that is a camera of its own.
+ */
+data class ZoomInfo(val ratio: Float = 1f, val min: Float = 1f, val max: Float = 1f, val lens: Float = 1f)
+
+/** An ultra-wide camera the phone lists on its own, [ratio] times as wide as the main camera (0.6 is 0.6×). */
+data class WideLens(val cameraId: String, val ratio: Float)
 
 data class ExposureInfo(val index: Int = 0, val min: Int = 0, val max: Int = 0, val step: Float = 1f) {
     val supported: Boolean get() = max > min
@@ -102,6 +109,8 @@ data class CameraCapabilities(
     val isoRange: IntRange? = null,
     /** Exposure times in nanoseconds the sensor can be set to. */
     val exposureTimeRange: LongRange? = null,
+    /** An ultra-wide to switch to, on phones that don't reach it by zooming out. */
+    val wideLens: WideLens? = null,
 ) {
     val manualFocus: Boolean get() = minFocusDiopters > 0f
     val manualExposure: Boolean get() = isoRange != null && exposureTimeRange != null
@@ -116,6 +125,8 @@ data class BindRequest(
     val flash: FlashSetting,
     val targetRotation: Int,
     val displayRotation: Int,
+    /** A particular camera on that side ([WideLens.cameraId]), or null for the main one. */
+    val cameraId: String? = null,
 )
 
 /** A captured photo: JPEG bytes (or a bitmap if the device delivered another format). */
@@ -162,8 +173,11 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
     private val _torchOn = MutableStateFlow(false)
     val torchOn: StateFlow<Boolean> = _torchOn.asStateFlow()
 
+    /** How wide the bound camera sees against the main one; see [ZoomInfo.lens]. */
+    private var lensRatio = 1f
+
     private val zoomObserver = Observer<ZoomState> { state ->
-        _zoom.value = ZoomInfo(state.zoomRatio, state.minZoomRatio, state.maxZoomRatio)
+        _zoom.value = ZoomInfo(state.zoomRatio, state.minZoomRatio, state.maxZoomRatio, lensRatio)
     }
     private val torchObserver = Observer<Int> { _torchOn.value = it == TorchState.ON }
 
@@ -211,7 +225,13 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
         val hasBack = hasCamera(cameraProvider, CameraSelector.DEFAULT_BACK_CAMERA)
         val dualPair = dualCameraPair(cameraProvider)
         val front = if (request.front) hasFront else !hasBack
-        val selector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val facing = if (front) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
+        val mainSelector = if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val wideLens = wideLens(cameraProvider, mainSelector, facing)
+        val selector = request.cameraId
+            ?.let { id -> cameraProvider.availableCameraInfos.firstOrNull { it.lensFacing == facing && cameraId(it) == id } }
+            ?.cameraSelector
+            ?: mainSelector
 
         preview.targetRotation = request.displayRotation
         val useCases = mutableListOf<UseCase>(preview)
@@ -283,16 +303,43 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
                     ConcurrentCamera.SingleCameraConfig(inset.cameraSelector, group, PICTURE_IN_PICTURE, owner),
                 ),
             )
-            attach(concurrent.cameras.first(), owner, front, hasFront, dualCamera = true)
+            attach(concurrent.cameras.first(), owner, front, hasFront, dualCamera = true, wideLens = null)
         } else {
             val bound = cameraProvider.bindToLifecycle(
                 owner,
                 selector,
                 SessionConfig(useCases = useCases, viewPort = viewPort, effects = listOf(effect)),
             )
-            attach(bound, owner, front, hasFront, dualCamera = dualPair != null)
+            attach(bound, owner, front, hasFront, dualCamera = dualPair != null, wideLens = wideLens)
         }
         return _capabilities.value
+    }
+
+    /**
+     * The widest camera beside the main one on that side, for phones that list their ultra-wide
+     * as a camera of its own. Phones whose main camera zooms out below 1× reach their
+     * ultra-wide by zooming, and get none.
+     */
+    private fun wideLens(provider: ProcessCameraProvider, mainSelector: CameraSelector, facing: Int): WideLens? = try {
+        val infos = provider.availableCameraInfos
+        val main = mainSelector.filter(infos).firstOrNull()
+        if (main == null || (main.zoomState.value?.minZoomRatio ?: 1f) < 0.95f) {
+            null
+        } else {
+            infos.filter { it.lensFacing == facing && it != main }
+                .mapNotNull { info -> cameraId(info)?.let { id -> WideLens(id, info.intrinsicZoomRatio) } }
+                .filter { it.ratio < 0.9f }
+                .minByOrNull { it.ratio }
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+    private fun cameraId(info: CameraInfo): String? = try {
+        Camera2CameraInfo.from(info).cameraId
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
     /** A back and a front camera that can stream at the same time, if the phone has them. */
@@ -314,13 +361,22 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
             false
         }
 
-    private fun attach(bound: Camera, owner: LifecycleOwner, front: Boolean, hasFront: Boolean, dualCamera: Boolean) {
+    private fun attach(
+        bound: Camera,
+        owner: LifecycleOwner,
+        front: Boolean,
+        hasFront: Boolean,
+        dualCamera: Boolean,
+        wideLens: WideLens?,
+    ) {
         observedInfo?.let {
             it.zoomState.removeObserver(zoomObserver)
             it.torchState.removeObserver(torchObserver)
         }
         camera = bound
         val info = bound.cameraInfo
+        // Before observing, so the first zoom reading already says which lens it is from.
+        lensRatio = info.intrinsicZoomRatio
         info.zoomState.observe(owner, zoomObserver)
         info.torchState.observe(owner, torchObserver)
         observedInfo = info
@@ -334,6 +390,7 @@ class CameraEngine(private val context: Context, private val processor: VhsSurfa
             dualCamera = dualCamera,
             isoRange = isoRange,
             exposureTimeRange = exposureRange,
+            wideLens = wideLens,
         )
     }
 

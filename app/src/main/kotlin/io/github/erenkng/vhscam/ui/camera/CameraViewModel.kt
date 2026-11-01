@@ -59,6 +59,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -105,7 +107,14 @@ enum class CameraMessage {
 }
 
 /** Session-defining settings; a change requires binding the camera again. */
-data class BindKey(val mode: CaptureMode, val front: Boolean, val aspect: AspectSetting?, val quality: VideoQuality?)
+data class BindKey(
+    val mode: CaptureMode,
+    val front: Boolean,
+    val aspect: AspectSetting?,
+    val quality: VideoQuality?,
+    /** The ultra-wide camera's id while it is in use, or null for the main camera. */
+    val lens: String? = null,
+)
 
 data class CameraUiState(
     val settings: AppSettings = AppSettings(),
@@ -113,6 +122,10 @@ data class CameraUiState(
     val zoom: ZoomInfo = ZoomInfo(),
     /** Camcorder digital zoom on top of the camera's zoom (VHS look only); 1 is off. */
     val digitalZoom: Float = 1f,
+    /** The phone's own ultra-wide camera is in use instead of the main one. */
+    val useWide: Boolean = false,
+    /** The main camera's zoom as last seen, for the zoom buttons while the ultra-wide is in use. */
+    val lastMainZoom: ZoomInfo? = null,
     val exposure: ExposureInfo = ExposureInfo(),
     val capabilities: CameraCapabilities = CameraCapabilities(),
     val torchOn: Boolean = false,
@@ -157,8 +170,39 @@ data class CameraUiState(
     /** Pro mode with ISO or shutter set by hand: auto exposure, its compensation and the flash are off. */
     val manualExposure: Boolean get() = isPro && (iso != null || shutterNanos != null) && capabilities.manualExposure
 
-    /** Zoom as the user sees it: the camera's zoom times the digital zoom. */
-    val effectiveZoom: Float get() = zoom.ratio * digitalZoom
+    /** Zoom as the user sees it, against the main camera: the lens, its zoom and the digital zoom. */
+    val effectiveZoom: Float get() = zoom.ratio * zoom.lens * digitalZoom
+
+    /** The bound camera is an ultra-wide of its own rather than the main camera. */
+    val onWide: Boolean get() = zoom.lens < 0.99f
+
+    /** The main camera's zoom range, even while the ultra-wide is in use. */
+    val mainZoom: ZoomInfo get() = if (onWide) lastMainZoom ?: ZoomInfo() else zoom
+
+    /** Switching between the main camera and the ultra-wide restarts the camera, so not while filming. */
+    val canSwitchLens: Boolean
+        get() = capabilities.wideLens != null && !isRecording && settings.mode != CaptureMode.DUAL
+
+    /**
+     * Zoom buttons as the user sees zoom: the ultra-wide (or the widest the main camera zooms
+     * out to), 1×, and 2× and 5× where the main camera reaches. Lenses that can't be switched to
+     * right now are left out.
+     */
+    val zoomPresets: List<Float>
+        get() = buildList {
+            val wide = capabilities.wideLens
+            val main = mainZoom
+            if (wide != null && (canSwitchLens || onWide)) {
+                add(wide.ratio)
+            } else if (main.min < 0.95f && !onWide) {
+                add(main.min)
+            }
+            if (!onWide || canSwitchLens) {
+                add(1f)
+                if (main.max >= 2f) add(2f)
+                if (main.max >= 5f) add(5f)
+            }
+        }
 
     /** What the shutter does: photo mode's shot kind, or a single shot in the other modes. */
     val shot: ShotKind get() = if (settings.mode == CaptureMode.PHOTO) settings.shot else ShotKind.SINGLE
@@ -177,13 +221,18 @@ data class CameraUiState(
             front = settings.frontCamera,
             aspect = settings.aspect.takeIf { isFilming },
             quality = settings.videoQuality.takeIf { isFilming },
+            lens = capabilities.wideLens?.cameraId?.takeIf { useWide && settings.mode != CaptureMode.DUAL },
         )
 }
 
 class CameraViewModel(
     application: Application,
     private val container: AppContainer,
+    /** Over the lock screen: nothing shot before it opened may show. */
+    private val secure: Boolean = false,
 ) : AndroidViewModel(application) {
+
+    private val openedAt = System.currentTimeMillis()
 
     private val processor = VhsSurfaceProcessor(application)
     private val engine = CameraEngine(application, processor)
@@ -212,6 +261,12 @@ class CameraViewModel(
     private var tapeProgress: Float? = null
     private var animationProgress: Float? = null
 
+    /** Moving between the main camera and the ultra-wide; zoom waits until the new one is bound. */
+    private var switchingLens = false
+
+    /** Zoom to apply once the camera switched to is bound. */
+    private var pendingZoom: Float? = null
+
     init {
         sounds.load(MediaActionSound.SHUTTER_CLICK)
         sounds.load(MediaActionSound.START_VIDEO_RECORDING)
@@ -235,7 +290,11 @@ class CameraViewModel(
         viewModelScope.launch {
             engine.meter.collect { m -> if (_state.value.isPro) _state.update { it.copy(meter = m) } }
         }
-        viewModelScope.launch { engine.zoom.collect { z -> _state.update { it.copy(zoom = z) } } }
+        viewModelScope.launch {
+            engine.zoom.collect { z ->
+                _state.update { it.copy(zoom = z, lastMainZoom = if (z.lens >= 0.99f) z else it.lastMainZoom) }
+            }
+        }
         viewModelScope.launch { engine.exposure.collect { e -> _state.update { it.copy(exposure = e) } } }
         viewModelScope.launch { engine.capabilities.collect { c -> _state.update { it.copy(capabilities = c) } } }
         viewModelScope.launch { engine.torchOn.collect { t -> _state.update { it.copy(torchOn = t) } } }
@@ -245,7 +304,21 @@ class CameraViewModel(
                 if (!engine.isRecording) engine.setTargetRotation(r)
             }
         }
-        viewModelScope.launch { container.media.latest.collect { m -> _state.update { it.copy(latest = m) } } }
+        viewModelScope.launch {
+            container.media.latest.collect { m ->
+                val shown = if (secure && m != null && m.dateTakenMillis < openedAt) null else m
+                _state.update { it.copy(latest = shown) }
+            }
+        }
+        // A launch from outside the app may ask for photos or video; Pro and dual recording
+        // already are one or the other, so they stay.
+        viewModelScope.launch {
+            container.launchMode.filterNotNull().collect { mode ->
+                val s = _state.first { it.settingsLoaded }
+                container.launchMode.value = null
+                if (!s.isRecording && s.settings.mode.films != mode.films) updateSettings { it.copy(mode = mode) }
+            }
+        }
         viewModelScope.launch { container.rolls.state.collect { r -> _state.update { it.copy(roll = r) } } }
         viewModelScope.launch { container.reel.state.collect { r -> _state.update { it.copy(reel = r) } } }
         viewModelScope.launch { container.media.loadAll() }
@@ -291,6 +364,7 @@ class CameraViewModel(
             flash = settings.flash,
             targetRotation = s.rotation,
             displayRotation = displayRotation,
+            cameraId = s.bindKey.lens,
         )
         try {
             val capabilities = engine.bind(owner, request) { error ->
@@ -305,11 +379,21 @@ class CameraViewModel(
                 message(CameraMessage.DUAL_UNAVAILABLE)
             }
             pushRenderState(_state.value)
+            switchingLens = false
+            pendingZoom?.let { zoom ->
+                pendingZoom = null
+                setZoom(zoom)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Binding failed", e)
-            if (settings.mode == CaptureMode.DUAL) {
+            switchingLens = false
+            pendingZoom = null
+            if (s.bindKey.lens != null) {
+                // The ultra-wide wouldn't open: back to the main camera, which binds again.
+                _state.update { it.copy(useWide = false) }
+            } else if (settings.mode == CaptureMode.DUAL) {
                 updateSettings { it.copy(mode = CaptureMode.VIDEO) }
                 message(CameraMessage.DUAL_UNAVAILABLE)
             } else {
@@ -474,6 +558,32 @@ class CameraViewModel(
                     mirrorSecond = photo.front && settings.mirrorSelfies,
                     longEdge = settings.photoLook.stillLongEdge,
                 )
+            }
+        }
+    }
+
+    /** While filming: saves the frame being recorded as a photo, look and all. */
+    fun takeSnapshot() {
+        val s = _state.value
+        if (!s.isRecording) return
+        val look = s.activeLook
+        // The click would end up on the tape: only where the law asks for it.
+        if (CameraInfo.mustPlayShutterSound()) sounds.play(MediaActionSound.SHUTTER_CLICK)
+        _state.update { it.copy(shutterCount = it.shutterCount + 1) }
+        processor.snapshot(look.stillLongEdge) { still ->
+            if (still == null) {
+                message(CameraMessage.CAPTURE_FAILED)
+                return@snapshot
+            }
+            val nowMillis = System.currentTimeMillis()
+            val capturedAt = LocalDateTime.now()
+            container.appScope.launch {
+                runCatching { container.photoPipeline.saveStill(still, look, capturedAt, nowMillis) }
+                    .exceptionOrNull()
+                    ?.let {
+                        Log.e(TAG, "Saving the still failed", it)
+                        message(CameraMessage.CAPTURE_FAILED)
+                    }
             }
         }
     }
@@ -835,17 +945,35 @@ class CameraViewModel(
 
     fun setExposure(index: Int) = engine.setExposure(index)
 
-    /** Zooms the camera; past the lens the VHS look carries on with blocky digital zoom. */
+    /**
+     * Zooms to [ratio] as the user sees zoom (0.6 is an ultra-wide's 0.6×). Below 1× on a phone
+     * with an ultra-wide of its own, the camera switches to it, and back at 1× and up. Past the
+     * lens, the VHS look carries on with blocky digital zoom.
+     */
     fun setZoom(ratio: Float) {
         val s = _state.value
+        if (switchingLens) return
+        if (s.canSwitchLens) {
+            if (!s.onWide && ratio < WIDE_BELOW) return switchLens(toWide = true, zoom = ratio)
+            if (s.onWide && ratio >= 1f) return switchLens(toWide = false, zoom = ratio)
+        }
+        // The bound camera's own zoom: an ultra-wide starts its own range at 1.
+        val own = ratio / s.zoom.lens
         val lensMax = s.zoom.max
-        if (s.digitalZoomAvailable && ratio > lensMax) {
+        if (s.digitalZoomAvailable && !s.onWide && own > lensMax) {
             engine.setZoom(lensMax)
-            _state.update { it.copy(digitalZoom = (ratio / lensMax).coerceIn(1f, DIGITAL_ZOOM_MAX)) }
+            _state.update { it.copy(digitalZoom = (own / lensMax).coerceIn(1f, DIGITAL_ZOOM_MAX)) }
         } else {
-            engine.setZoom(ratio)
+            engine.setZoom(own)
             _state.update { it.copy(digitalZoom = 1f) }
         }
+    }
+
+    private fun switchLens(toWide: Boolean, zoom: Float) {
+        switchingLens = true
+        pendingZoom = zoom
+        // A new bind key: the camera screen binds the other camera.
+        _state.update { it.copy(useWide = toWide) }
     }
 
     fun setManualFocus(diopters: Float?) {
@@ -921,6 +1049,8 @@ class CameraViewModel(
 
     fun flipCamera() {
         if (_state.value.isRecording) return
+        // The other side starts on its main camera.
+        _state.update { it.copy(useWide = false) }
         updateSettings { it.copy(frontCamera = !it.frontCamera) }
     }
 
@@ -963,11 +1093,14 @@ class CameraViewModel(
         /** An animation needs at least this many frames to move. */
         const val MIN_ANIMATION_FRAMES = 2
 
+        /** Zooming out below this switches to the ultra-wide, where the phone has one of its own. */
+        const val WIDE_BELOW = 0.95f
+
         /** How far the digital zoom goes past the lens. */
         const val DIGITAL_ZOOM_MAX = 10f
 
-        fun factory(app: VhsCamApp): ViewModelProvider.Factory = viewModelFactory {
-            initializer { CameraViewModel(app, app.container) }
+        fun factory(app: VhsCamApp, secure: Boolean = false): ViewModelProvider.Factory = viewModelFactory {
+            initializer { CameraViewModel(app, app.container, secure) }
         }
     }
 }

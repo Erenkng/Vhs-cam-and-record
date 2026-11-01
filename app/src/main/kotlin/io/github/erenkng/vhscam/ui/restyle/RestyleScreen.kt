@@ -56,7 +56,7 @@ import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.ui.camera.LookBrowserSheet
 import io.github.erenkng.vhscam.ui.camera.label
-import io.github.erenkng.vhscam.ui.camera.sample
+import io.github.erenkng.vhscam.ui.camera.thumbnail
 import io.github.erenkng.vhscam.ui.components.AppSlider
 import io.github.erenkng.vhscam.ui.components.ThumbnailDial
 import io.github.erenkng.vhscam.ui.theme.VhsCamTheme
@@ -172,7 +172,7 @@ private fun Controls(state: RestyleUiState, onLook: (Look) -> Unit, onIntensity:
             options = Look.entries,
             selected = state.look,
             onSelect = onLook,
-            image = { it.sample() },
+            image = { it.thumbnail() },
             label = { stringResource(it.label()) },
             enabled = !state.saving,
             onSelectedClick = { showLooks = true },

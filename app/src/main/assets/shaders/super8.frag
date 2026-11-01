@@ -1,6 +1,6 @@
-// Super 8 home movie, as a projector or a film scanner shows it: warm, punchy reversal colour,
-// coarse grain, exposure that flickers from frame to frame, a picture that weaves in the gate,
-// dust and the odd scratch, and the gate's rounded edge with the sprocket hole beside it.
+// Super 8 home movie, as a projector shows it: warm, punchy reversal colour, coarse grain,
+// exposure that flickers from frame to frame, a picture that weaves in the gate, dust and the
+// odd scratch, and the gate's dark rounded edge around the picture.
 uniform sampler2D uSrc;
 uniform vec2 uSrcSize;
 uniform float uScale;        // working height / 540
@@ -17,7 +17,7 @@ uniform float uDust;
 uniform float uScratches;
 uniform float uSoftness;
 uniform float uVignette;
-uniform float uGate;         // 0 picture only .. 1 film edge and sprocket hole in view
+uniform float uGate;         // 0 picture only .. 1 the gate's dark rounded edge in view
 
 in vec2 vUv;
 out vec4 fragColor;
@@ -53,12 +53,10 @@ void main() {
     ) * uWeave * 0.008;
     vec2 film = p - weave;
 
-    // The picture sits right of the sprocket hole, with a thin black margin on the other sides.
-    float left = 0.17 * uGate;
+    // The picture fills the gate, with a thin black margin all round.
     float margin = 0.035 * uGate;
-    vec2 halfSize = vec2(aspect * 0.5 - (left + margin) * 0.5, 0.5 - margin);
-    vec2 centre = vec2((left - margin) * 0.5, 0.0);
-    vec2 inPicture = film - centre;
+    vec2 halfSize = vec2(aspect * 0.5 - margin, 0.5 - margin);
+    vec2 inPicture = film;
     // Fill the picture's height and crop the sides, so nothing is squeezed.
     vec2 uv = vec2(inPicture.x / (aspect * 2.0 * halfSize.y), inPicture.y / (2.0 * halfSize.y)) + 0.5;
 
@@ -111,14 +109,6 @@ void main() {
     float edge = roundedBox(inPicture, halfSize, 0.06);
     float inside = 1.0 - smoothstep(-0.012, 0.004, edge);
     col *= mix(1.0, inside, min(uGate * 4.0, 1.0));
-
-    // The sprocket hole: lamp light through the film base, left of the picture.
-    if (uGate > 0.0) {
-        vec2 hole = film - vec2(-aspect * 0.5 + left * 0.5 - 0.005, 0.0);
-        float d = roundedBox(hole, vec2(left * 0.24, 0.085 * uGate + 0.01), 0.025 * uGate);
-        float lit = 1.0 - smoothstep(-0.006, 0.003, d);
-        col = mix(col, vec3(1.0, 0.94, 0.82) * (0.92 + flicker * 0.4), lit * min(uGate * 3.0, 1.0));
-    }
 
     fragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }

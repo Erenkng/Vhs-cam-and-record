@@ -130,3 +130,20 @@ export function drawCctvOverlay(ctx, w, h, { camera = 'CAM 01', stamp }) {
     outlinedText(ctx, stamp, w * 0.95 - tw, y, size, '#FFFFFF');
   }
 }
+
+/** MiniDV display: the tape's timecode top-right, the data code (time, date) bottom-right. */
+export function drawDvOverlay(ctx, w, h, { timecode, timeText, dateText }) {
+  const size = h * 0.065;
+  ctx.font = `${size}px VT323`;
+  ctx.textBaseline = 'alphabetic';
+  if (timecode) {
+    const tw = ctx.measureText(timecode).width;
+    outlinedText(ctx, timecode, w * 0.93 - tw, h * 0.13, size, '#FFFFFF');
+  }
+  let y = h * 0.91;
+  for (const line of [dateText, timeText].filter(Boolean)) {
+    const tw = ctx.measureText(line).width;
+    outlinedText(ctx, line, w * 0.93 - tw, y, size, '#FFFFFF');
+    y -= size * 1.05;
+  }
+}

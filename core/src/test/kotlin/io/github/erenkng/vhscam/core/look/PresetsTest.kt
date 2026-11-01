@@ -76,11 +76,54 @@ class PresetsTest {
             assertEquals(LookCategory.FILM, look.category)
             assertTrue(FilmStocks.params(look, 1f).grain > FilmStocks.params(look, 0.5f).grain, "$look grain grows")
         }
-        assertEquals(setOf(Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE), FilmStocks.looks)
-        // Red grain is the grainiest and the reddest; Cine 800 glows the most.
+        assertEquals(
+            setOf(
+                Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE,
+                Look.SILVER, Look.AEROCHROME, Look.CROSS, Look.SLIDE,
+            ),
+            FilmStocks.looks,
+        )
+        // Among the colour negatives, Red Grain is the grainiest and the reddest; Cine 800 glows the most.
+        val negatives = listOf(Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE)
         val red = FilmStocks.params(Look.RED_GRAIN)
-        assertTrue(FilmStocks.looks.all { FilmStocks.params(it).grain <= red.grain && FilmStocks.params(it).redGrain <= red.redGrain })
-        assertTrue(FilmStocks.looks.all { FilmStocks.params(it).halation <= FilmStocks.params(Look.CINE).halation })
+        assertTrue(negatives.all { FilmStocks.params(it).grain <= red.grain && FilmStocks.params(it).redGrain <= red.redGrain })
+        assertTrue(negatives.all { FilmStocks.params(it).halation <= FilmStocks.params(Look.CINE).halation })
+    }
+
+    @Test
+    fun specialFilmsKeepTheirCharacter() {
+        // Black and white at any strength, with grey grain.
+        for (intensity in listOf(0f, 0.3f, 1f)) assertEquals(0f, FilmStocks.params(Look.SILVER, intensity).saturation)
+        assertEquals(0f, FilmStocks.params(Look.SILVER).redGrain)
+        // The slide sits in its mount, which goes with the effect.
+        assertEquals(1f, FilmStocks.params(Look.SLIDE).mount)
+        assertEquals(1f, FilmStocks.params(Look.SLIDE, 1f).mount)
+        assertEquals(0f, FilmStocks.params(Look.SLIDE, 0f).mount)
+        // Only the toy camera's lens blurs; infrared turns green into red.
+        assertTrue(FilmStocks.params(Look.CROSS).softness > 0f)
+        assertTrue(FilmStocks.looks.minus(Look.CROSS).all { FilmStocks.params(it).softness == 0f })
+        val ir = FilmStocks.params(Look.AEROCHROME).matrix
+        assertTrue(ir[1] > ir[0], "green drives the red record")
+    }
+
+    @Test
+    fun v12LooksScaleWithIntensity() {
+        assertEquals(MiniDvParams(), PhotoLookPresets.miniDv(0.5f))
+        assertEquals(0f, PhotoLookPresets.miniDv(0f).fisheye)
+        assertEquals(1f, PhotoLookPresets.miniDv(1f).hood.coerceAtMost(1f))
+        // Night mode is green at any strength; only the struggling goes.
+        assertEquals(NightShotParams().gain, PhotoLookPresets.nightShot(0f).gain)
+        assertEquals(0f, PhotoLookPresets.nightShot(0f).ghost)
+        assertEquals(CrtParams(), PhotoLookPresets.crt(0.5f))
+        assertEquals(0f, PhotoLookPresets.crt(0f).curvature)
+        assertEquals(FlipPhoneParams(), PhotoLookPresets.flipPhone(0.5f))
+        assertTrue(PhotoLookPresets.flipPhone(1f).blockiness <= 1f)
+        // Still printed in dots when turned right down.
+        assertEquals(1f, PhotoLookPresets.thermal(0f).dither)
+        assertEquals(0f, PhotoLookPresets.thermal(0f).paper)
+        assertEquals(MavicaParams(), PhotoLookPresets.mavica(0.5f))
+        assertEquals(1f, PhotoLookPresets.mavica(0f).highlightKnee)
+        assertTrue(PhotoLookPresets.mavica(1f).jpegQuality < PhotoLookPresets.mavica(0f).jpegQuality)
     }
 
     @Test
@@ -98,7 +141,13 @@ class PresetsTest {
 
     @Test
     fun videoLooksAreTheOnesThatRecord() {
-        assertEquals(listOf(Look.VHS, Look.SUPER8, Look.GAMEBOY, Look.WEBCAM, Look.CCTV), Look.videoLooks)
+        assertEquals(
+            listOf(
+                Look.VHS, Look.SUPER8, Look.MINIDV, Look.NIGHTSHOT, Look.CRT,
+                Look.GAMEBOY, Look.WEBCAM, Look.FLIP, Look.CCTV,
+            ),
+            Look.videoLooks,
+        )
         assertTrue(Look.entries.filter { it.workLines == null }.none { it.video })
         assertTrue(Look.CCTV.holdFrames > Look.WEBCAM.holdFrames)
     }
@@ -112,5 +161,17 @@ class PresetsTest {
         assertEquals("DISPO_20261026_090503.jpg", FileNames.photo(t, Look.DISPOSABLE))
         assertEquals("BOOTH_20261026_090503.jpg", FileNames.strip(t))
         assertEquals("GIF_20261026_090503.gif", FileNames.gif(t))
+        assertEquals("MINIDV_20261026_090503.mp4", FileNames.video(t, Look.MINIDV))
+        assertEquals("3GP_20261026_090503.mp4", FileNames.video(t, Look.FLIP))
+        assertEquals("MVC_20261026_090503.jpg", FileNames.photo(t, Look.MAVICA))
+        assertEquals("SILVER400_20261026_090503.jpg", FileNames.photo(t, Look.SILVER))
+        assertEquals("TV_20261026_090503.mp4", FileNames.tv(t))
+    }
+
+    @Test
+    fun lookFilePrefixesAreDistinct() {
+        assertEquals(Look.entries.size, Look.entries.map { it.filePrefix }.toSet().size)
+        // Strips, GIFs, animations and TV clips keep names of their own.
+        assertTrue(Look.entries.none { it.filePrefix in FileNames.madePrefixes })
     }
 }

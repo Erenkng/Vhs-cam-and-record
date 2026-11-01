@@ -2,15 +2,23 @@
 // The pass graph mirrors app/src/main/kotlin/.../gl/LookRenderer.kt.
 
 import * as Presets from './presets.js';
-import { drawCamcorderStamp, drawCctvOverlay, drawDigitalStamp, drawFilmStamp, drawVcrOverlay } from './osd.js';
+import { drawCamcorderStamp, drawCctvOverlay, drawDigitalStamp, drawDvOverlay, drawFilmStamp, drawVcrOverlay } from './osd.js';
 
 const SHADERS = '../../app/src/main/assets/shaders/';
 const LOOK_ASPECT = {
-  VHS: 4 / 3, SUPER8: 4 / 3, CCD: 4 / 3, FILM: 3 / 2, DISPOSABLE: 3 / 2, POLAROID: 1, GAMEBOY: 8 / 7, WEBCAM: 4 / 3, CCTV: 4 / 3,
+  VHS: 4 / 3, SUPER8: 4 / 3, MINIDV: 4 / 3, NIGHTSHOT: 4 / 3, CRT: 4 / 3,
+  CCD: 4 / 3, FILM: 3 / 2, DISPOSABLE: 3 / 2, POLAROID: 1, GAMEBOY: 8 / 7, WEBCAM: 4 / 3, CCTV: 4 / 3,
   GOLD: 3 / 2, PORTRAIT: 3 / 2, CINE: 3 / 2, RED_GRAIN: 3 / 2, REDSCALE: 3 / 2,
+  SILVER: 3 / 2, AEROCHROME: 3 / 2, CROSS: 3 / 2, SLIDE: 3 / 2,
+  MAVICA: 4 / 3, FLIP: 11 / 9, THERMAL: 4 / 3,
 };
-// Height of the working frame per look (mirrors LookSpec.workLines in the app).
-const WORK_LINES = { VHS: 480, SUPER8: 540, GAMEBOY: 112, WEBCAM: 240, CCTV: 288 };
+// Height of the working frame per look (mirrors Look.workLines in the app).
+const WORK_LINES = {
+  VHS: 480, SUPER8: 540, MINIDV: 480, NIGHTSHOT: 480, CRT: 720, GAMEBOY: 112, WEBCAM: 240, CCTV: 288,
+  MAVICA: 480, FLIP: 144, THERMAL: 288,
+};
+// Looks whose film data back prints the date in orange.
+const FILM_STAMP = new Set(['FILM', 'DISPOSABLE', 'GOLD', 'PORTRAIT', 'CINE', 'RED_GRAIN', 'REDSCALE', 'SILVER', 'AEROCHROME', 'CROSS', 'SLIDE']);
 const EFFECTS = { NONE: 0, NIGHT: 1, SEPIA: 2, MONO: 3 };
 const UINT_UNIFORMS = new Set(['uFrame']);
 
@@ -57,6 +65,12 @@ export class LookLab {
       super8: await load('super8.frag'),
       disposable: await load('disposable.frag'),
       filmstock: await load('filmstock.frag'),
+      minidv: await load('minidv.frag'),
+      nightshot: await load('nightshot.frag'),
+      crt: await load('crt.frag'),
+      flipphone: await load('flipphone.frag'),
+      thermal: await load('thermal.frag'),
+      mavica: await load('mavica.frag'),
     };
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -180,14 +194,15 @@ export class LookLab {
 
     const input = this.texture(0, 0, null, image);
     const burned = this.osdTexture(W, H, (ctx, w, h) => {
-      if (look === 'VHS' && osd.dateText) drawCamcorderStamp(ctx, w, h, osd);
-      if ((look === 'FILM' || look === 'DISPOSABLE') && osd.filmText) drawFilmStamp(ctx, w, h, osd.filmText);
+      if ((look === 'VHS' || look === 'NIGHTSHOT') && osd.dateText) drawCamcorderStamp(ctx, w, h, osd);
+      if (FILM_STAMP.has(look) && osd.filmText) drawFilmStamp(ctx, w, h, osd.filmText);
     });
     const overlay = this.osdTexture(Math.round(720 * aspect), 720, (ctx, w, h) => {
       if (look === 'VHS') drawVcrOverlay(ctx, w, h, { ...osd, speed });
       // The digital stamp is written after in-camera processing, so it stays crisp.
       if (look === 'CCD' && osd.ccdText) drawDigitalStamp(ctx, w, h, osd.ccdText);
       if (look === 'CCTV') drawCctvOverlay(ctx, w, h, { stamp: osd.cctvText });
+      if (look === 'MINIDV') drawDvOverlay(ctx, w, h, osd);
     });
 
     const a = this.target(W, H);
@@ -259,6 +274,55 @@ export class LookLab {
         uContrast: p.contrast, uShadowTint: p.shadowTint, uHighlightTint: p.highlightTint, uGrain: p.grain,
         uGrainSize: p.grainSize, uSoftness: p.softness, uFringe: p.fringe, uVignette: p.vignette,
       }, { uSrc: a.tex });
+    } else if (look === 'MINIDV') {
+      const p = { ...Presets.MINIDV, ...overrides };
+      this.draw(this.programs.minidv, out, {
+        uSrcSize: [W, H], uScale: H / 480, uFrame: frame, uTime: time, uFisheye: p.fisheye, uHood: p.hood,
+        uComb: p.comb, uSharpen: p.sharpen, uSaturation: p.saturation, uContrast: p.contrast, uNoise: p.noise,
+        uVignette: p.vignette,
+      }, { uSrc: a.tex });
+    } else if (look === 'NIGHTSHOT') {
+      const p = { ...Presets.NIGHTSHOT, ...overrides };
+      const glow = this.target(Math.round(W / 4), Math.round(H / 4));
+      this.draw(this.programs.glow, glow, { uSrcSize: [W, H], uThreshold: 0.55, uRadius: H * 0.03 }, { uSrc: a.tex });
+      this.draw(this.programs.nightshot, out, {
+        uSrcSize: [W, H], uScale: H / 480, uFrame: frame, uGain: p.gain, uGlowAmount: p.glow, uGhost: p.ghost,
+        uNoise: p.noise, uSpot: p.spot,
+      }, { uSrc: a.tex, uGlow: glow.tex });
+      scanlines = p.scanlines;
+    } else if (look === 'CRT') {
+      const p = { ...Presets.CRT, ...overrides };
+      const glow = this.target(Math.round(W / 4), Math.round(H / 4));
+      this.draw(this.programs.glow, glow, { uSrcSize: [W, H], uThreshold: 0.6, uRadius: H * 0.02 }, { uSrc: a.tex });
+      this.draw(this.programs.crt, out, {
+        uSrcSize: [W, H], uScale: H / 720, uFrame: frame, uTime: time, uCurvature: p.curvature, uMask: p.mask,
+        uScanlines: p.scanlines, uFlicker: p.flicker, uGlowAmount: p.glow, uSaturation: p.saturation,
+        uGlare: p.glare, uVignette: p.vignette,
+      }, { uSrc: a.tex, uGlow: glow.tex });
+    } else if (look === 'FLIP') {
+      const p = { ...Presets.FLIP, ...overrides };
+      this.draw(this.programs.flipphone, out, {
+        uSrcSize: [W, H], uFrame: frame, uBlockiness: p.blockiness, uNoise: p.noise, uSaturation: p.saturation,
+        uContrast: p.contrast, uTint: p.tint, uSharpen: p.sharpen,
+      }, { uSrc: a.tex });
+    } else if (look === 'THERMAL') {
+      const p = { ...Presets.THERMAL, ...overrides };
+      this.draw(this.programs.thermal, out, {
+        uSrcSize: [W, H], uContrast: p.contrast, uBrightness: p.brightness, uDither: p.dither, uPaper: p.paper,
+        uFade: p.fade,
+      }, { uSrc: a.tex });
+      gl.bindTexture(gl.TEXTURE_2D, out.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    } else if (look === 'MAVICA') {
+      const p = { ...Presets.MAVICA, ...overrides };
+      const glow = this.target(Math.round(W / 4), Math.round(H / 4));
+      this.draw(this.programs.glow, glow, { uSrcSize: [W, H], uThreshold: 0.75, uRadius: H * 0.02 }, { uSrc: a.tex });
+      this.draw(this.programs.mavica, out, {
+        uSrcSize: [W, H], uFrame: frame, uSaturation: p.saturation, uContrast: p.contrast, uKnee: p.highlightKnee,
+        uSmear: p.smear, uSharpen: p.sharpen, uNoise: p.noise, uTint: p.tint,
+      }, { uSrc: a.tex, uGlow: glow.tex });
+      gl.bindTexture(gl.TEXTURE_2D, out.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     } else if (Presets.FILM_STOCKS[look]) {
       const p = { ...Presets.FILM_STOCKS[look], ...overrides };
       const glow = this.target(Math.round(W / 4), Math.round(H / 4));
@@ -267,7 +331,8 @@ export class LookLab {
         uSrcSize: [W, H], uScale: H / 1600, uFrame: frame, uExposure: p.exposure, uContrast: p.contrast,
         uFade: p.fade, uMatrix: p.matrix, uSaturation: p.saturation, uShadowTint: p.shadowTint,
         uHighlightTint: p.highlightTint, uHalation: p.halation, uHalationTint: p.halationTint, uGrain: p.grain,
-        uGrainSize: p.grainSize, uRedGrain: p.redGrain, uVignette: p.vignette,
+        uGrainSize: p.grainSize, uRedGrain: p.redGrain, uVignette: p.vignette, uSoftness: p.softness ?? 0,
+        uMount: p.mount ?? 0,
       }, { uSrc: a.tex, uGlow: glow.tex });
     } else if (look === 'CCD') {
       const p = Presets.CCD;
@@ -301,12 +366,14 @@ export class LookLab {
     }
 
     this.draw(this.programs.present, null, {
-      uSrcSize: [W, H], uOverlayEnabled: ['VHS', 'CCD', 'CCTV'].includes(look) ? 1 : 0, uOverlayMirror: 0,
+      uSrcSize: [W, H], uOverlayEnabled: ['VHS', 'CCD', 'CCTV', 'MINIDV'].includes(look) ? 1 : 0, uOverlayMirror: 0,
       uVignette: vignetteAmount, uScanlines: scanlines, uPeaking: 0, uPeakColor: [1, 0.2, 0.6],
       uBlueScreen: 0, uFade: 0, uFadeColor: [0, 0, 0],
     }, { uSrc: out.tex, uOverlay: overlay, uPeakSrc: a.tex });
 
     if (look === 'CCD') return this.jpegRoundTrip(Presets.CCD.jpegQuality / 100);
+    if (look === 'MAVICA') return this.jpegRoundTrip(Presets.MAVICA.jpegQuality / 100);
+    if (look === 'THERMAL') return this.receipt(osd);
     if (look === 'POLAROID') return this.polaroidFrame();
     if (look === 'GAMEBOY') return this.gameboyFrame(Presets.GAMEBOY.shades);
     return this.canvas;
@@ -336,6 +403,55 @@ export class LookLab {
     ctx.fillRect(Math.round(15 * s), Math.round(15 * s), Math.round(130 * s), Math.round(114 * s));
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.canvas, Math.round(16 * s), Math.round(16 * s));
+    return c;
+  }
+
+  /**
+   * The till roll a thermal camera prints on: paper a little wider than the 384 dot picture,
+   * the shop's name above it, the date under it, and torn edges top and bottom.
+   */
+  receipt({ receiptDate = '01.11.2026  18:42' } = {}) {
+    const s = this.canvas.width / 384;
+    const c = document.createElement('canvas');
+    const margin = Math.round(40 * s);
+    const head = Math.round(110 * s);
+    const foot = Math.round(120 * s);
+    c.width = this.canvas.width + 2 * margin;
+    c.height = this.canvas.height + head + foot;
+    const ctx = c.getContext('2d');
+    const tooth = 12 * s;
+    // The table under the receipt shows past its torn edges (a JPEG has no transparency).
+    ctx.fillStyle = '#2A2826';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#F4F2EC';
+    ctx.beginPath();
+    ctx.moveTo(0, tooth);
+    for (let x = 0; x < c.width; x += tooth * 2) {
+      ctx.lineTo(Math.min(x + tooth, c.width), 0);
+      ctx.lineTo(Math.min(x + tooth * 2, c.width), tooth);
+    }
+    ctx.lineTo(c.width, c.height - tooth);
+    for (let x = c.width; x > 0; x -= tooth * 2) {
+      ctx.lineTo(Math.max(x - tooth, 0), c.height);
+      ctx.lineTo(Math.max(x - tooth * 2, 0), c.height - tooth);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.canvas, margin, head);
+    ctx.fillStyle = '#26262A';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `${Math.round(46 * s)}px VT323`;
+    ctx.fillText('VHS CAM', c.width / 2, head * 0.55);
+    ctx.font = `${Math.round(26 * s)}px VT323`;
+    ctx.fillText('- - - - - - - - - - - - - -', c.width / 2, head * 0.85);
+    const below = head + this.canvas.height;
+    ctx.fillText('- - - - - - - - - - - - - -', c.width / 2, below + foot * 0.25);
+    ctx.font = `${Math.round(32 * s)}px VT323`;
+    ctx.fillText(receiptDate, c.width / 2, below + foot * 0.52);
+    ctx.font = `${Math.round(26 * s)}px VT323`;
+    ctx.fillText('* * *  THANK YOU  * * *', c.width / 2, below + foot * 0.78);
     return c;
   }
 
@@ -370,6 +486,19 @@ window.renderToDataUrl = async (opts) => {
   const image = await loadImage(opts.imageUrl);
   const result = await lab.render({ ...opts, image });
   return result.toDataURL(opts.format ?? 'image/png', opts.quality);
+};
+
+// For other page scripts (thumbs.js): the rendered canvas itself, copied so the next render
+// doesn't draw over it.
+window.renderCanvas = async (opts) => {
+  await ready;
+  const image = await loadImage(opts.imageUrl);
+  const result = await lab.render({ ...opts, image });
+  const copy = document.createElement('canvas');
+  copy.width = result.width;
+  copy.height = result.height;
+  copy.getContext('2d').drawImage(result, 0, 0);
+  return copy;
 };
 
 ready.then(() => {

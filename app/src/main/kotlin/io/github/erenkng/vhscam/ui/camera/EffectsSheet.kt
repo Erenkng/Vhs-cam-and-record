@@ -185,12 +185,14 @@ fun EffectsSheetContent(state: CameraUiState, actions: CameraActions, modifier: 
             switchGroup(
                 buildList {
                     add(SwitchRow(R.string.date_stamp, settings.dateStamp) { v -> change { it.copy(dateStamp = v) } })
-                    if (look == Look.VHS) {
+                    if (look in CAMCORDER_LOOKS) {
                         add(
                             SwitchRow(R.string.time_stamp, settings.timeStamp, enabled = settings.dateStamp) { v ->
                                 change { it.copy(timeStamp = v) }
                             },
                         )
+                    }
+                    if (look == Look.VHS) {
                         add(SwitchRow(R.string.play_osd, settings.playOsd) { v -> change { it.copy(playOsd = v) } })
                         add(SwitchRow(R.string.counter_osd, settings.counterOsd) { v -> change { it.copy(counterOsd = v) } })
                     }
@@ -322,7 +324,12 @@ private fun LazyListScope.section(title: Int) {
 }
 
 /** Looks that print a date or time into the picture. */
-private val OSD_LOOKS = Look.entries.toSet() - setOf(Look.SUPER8, Look.POLAROID, Look.GAMEBOY, Look.WEBCAM)
+/** Looks that print a date: everything but the ones whose cameras never did. */
+private val OSD_LOOKS = Look.entries.toSet() -
+    setOf(Look.SUPER8, Look.CRT, Look.POLAROID, Look.MAVICA, Look.GAMEBOY, Look.WEBCAM, Look.FLIP, Look.THERMAL)
+
+/** Camcorders show the time above the date. */
+private val CAMCORDER_LOOKS = setOf(Look.VHS, Look.MINIDV, Look.NIGHTSHOT)
 
 private class SwitchRow(
     val title: Int,

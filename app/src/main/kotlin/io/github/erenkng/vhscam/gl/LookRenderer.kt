@@ -13,8 +13,10 @@ import kotlin.math.roundToInt
  *
  * - input: camera/photo -> upright working frame (+ burned-in OSD, camcorder effects)
  * - VHS: [trail] -> chroma (quarter width) -> tape playback
- * - CCD, 8-bit, webcam, CCTV, Super 8, disposable: single pass
- * - film / instant film / film stocks: glow (quarter size) -> look pass
+ * - CCD, 8-bit, webcam, CCTV, Super 8, disposable, MiniDV, camera phone, thermal print:
+ *   single pass
+ * - film / instant film / film stocks / CRT / Mavica: glow (quarter size) -> look pass
+ * - NightShot: trail -> glow -> look pass
  * - present: working frame -> output surface (+ crisp OSD, vignette, scanlines, peaking,
  *   blue screen, fader)
  *
@@ -37,6 +39,12 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
     private val super8 = shaders.program("super8.frag")
     private val disposable = shaders.program("disposable.frag")
     private val filmStock = shaders.program("filmstock.frag")
+    private val miniDv = shaders.program("minidv.frag")
+    private val nightShot = shaders.program("nightshot.frag")
+    private val crt = shaders.program("crt.frag")
+    private val flipPhone = shaders.program("flipphone.frag")
+    private val thermal = shaders.program("thermal.frag")
+    private val mavica = shaders.program("mavica.frag")
     private val present = shaders.program("present.frag")
 
     private val working = TargetSlot()
@@ -124,14 +132,20 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
         draw()
 
         // Trail: blend with the previous output of this pass (ping-pong between two targets).
-        val source = if (effect == CamcorderEffect.TRAIL) {
+        // Night mode's ghosting trails moving things the same way, a little shorter.
+        val trailAmount = when {
+            effect == CamcorderEffect.TRAIL -> TRAIL_AMOUNT
+            spec is LookSpec.NightShot -> (spec.params.ghost * NIGHT_TRAIL).coerceAtMost(TRAIL_AMOUNT)
+            else -> 0f
+        }
+        val source = if (trailAmount > 0f) {
             val previous = trailTargets[trailIndex].peek()?.takeIf { trailValid && it.width == w && it.height == h }
             trailIndex = 1 - trailIndex
             val next = trailTargets[trailIndex].get(w, h)
             next.bind()
             trail.use()
             trail.setMatrix("uUvTransform", identity)
-            trail.set("uTrail", TRAIL_AMOUNT)
+            trail.set("uTrail", trailAmount)
             trail.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
             trail.setTexture("uPrevious", 1, GLES30.GL_TEXTURE_2D, (previous ?: a).texture)
             draw()
@@ -276,8 +290,119 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
                 filmStock.set("uGrainSize", p.grainSize)
                 filmStock.set("uRedGrain", p.redGrain)
                 filmStock.set("uVignette", p.vignette)
+                filmStock.set("uSoftness", p.softness)
+                filmStock.set("uMount", p.mount)
                 filmStock.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
                 filmStock.setTexture("uGlow", 1, GLES30.GL_TEXTURE_2D, g.texture)
+                draw()
+            }
+            is LookSpec.MiniDv -> {
+                val p = spec.params
+                out.bind()
+                miniDv.use()
+                miniDv.setMatrix("uUvTransform", identity)
+                miniDv.set("uSrcSize", w.toFloat(), h.toFloat())
+                miniDv.set("uScale", h / 480f)
+                miniDv.setUnsigned("uFrame", frame)
+                miniDv.set("uTime", time)
+                miniDv.set("uFisheye", p.fisheye)
+                miniDv.set("uHood", p.hood)
+                miniDv.set("uComb", p.comb)
+                miniDv.set("uSharpen", p.sharpen)
+                miniDv.set("uSaturation", p.saturation)
+                miniDv.set("uContrast", p.contrast)
+                miniDv.set("uNoise", p.noise)
+                miniDv.set("uVignette", p.vignette)
+                miniDv.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                draw()
+            }
+            is LookSpec.NightShot -> {
+                val p = spec.params
+                val g = renderGlow(source, w, h, threshold = 0.55f, radius = h * 0.03f)
+                out.bind()
+                nightShot.use()
+                nightShot.setMatrix("uUvTransform", identity)
+                nightShot.set("uSrcSize", w.toFloat(), h.toFloat())
+                nightShot.set("uScale", h / 480f)
+                nightShot.setUnsigned("uFrame", frame)
+                nightShot.set("uGain", p.gain)
+                nightShot.set("uGlowAmount", p.glow)
+                nightShot.set("uGhost", p.ghost)
+                nightShot.set("uNoise", p.noise)
+                nightShot.set("uSpot", p.spot)
+                nightShot.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, source.texture)
+                nightShot.setTexture("uGlow", 1, GLES30.GL_TEXTURE_2D, g.texture)
+                draw()
+            }
+            is LookSpec.Crt -> {
+                val p = spec.params
+                val g = renderGlow(a, w, h, threshold = 0.6f, radius = h * 0.02f)
+                out.bind()
+                crt.use()
+                crt.setMatrix("uUvTransform", identity)
+                crt.set("uSrcSize", w.toFloat(), h.toFloat())
+                crt.set("uScale", h / 720f)
+                crt.setUnsigned("uFrame", frame)
+                crt.set("uTime", time)
+                crt.set("uCurvature", p.curvature)
+                crt.set("uMask", p.mask)
+                crt.set("uScanlines", p.scanlines)
+                crt.set("uFlicker", p.flicker)
+                crt.set("uGlowAmount", p.glow)
+                crt.set("uSaturation", p.saturation)
+                crt.set("uGlare", p.glare)
+                crt.set("uVignette", p.vignette)
+                crt.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                crt.setTexture("uGlow", 1, GLES30.GL_TEXTURE_2D, g.texture)
+                draw()
+            }
+            is LookSpec.FlipPhone -> {
+                val p = spec.params
+                out.bind()
+                flipPhone.use()
+                flipPhone.setMatrix("uUvTransform", identity)
+                flipPhone.set("uSrcSize", w.toFloat(), h.toFloat())
+                flipPhone.setUnsigned("uFrame", frame)
+                flipPhone.set("uBlockiness", p.blockiness)
+                flipPhone.set("uNoise", p.noise)
+                flipPhone.set("uSaturation", p.saturation)
+                flipPhone.set("uContrast", p.contrast)
+                flipPhone.set("uTint", p.tintR, p.tintG, p.tintB)
+                flipPhone.set("uSharpen", p.sharpen)
+                flipPhone.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                draw()
+            }
+            is LookSpec.Thermal -> {
+                val p = spec.params
+                out.bind()
+                thermal.use()
+                thermal.setMatrix("uUvTransform", identity)
+                thermal.set("uSrcSize", w.toFloat(), h.toFloat())
+                thermal.set("uContrast", p.contrast)
+                thermal.set("uBrightness", p.brightness)
+                thermal.set("uDither", p.dither)
+                thermal.set("uPaper", p.paper)
+                thermal.set("uFade", p.fade)
+                thermal.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                draw()
+            }
+            is LookSpec.Mavica -> {
+                val p = spec.params
+                val g = renderGlow(a, w, h, threshold = 0.75f, radius = h * 0.02f)
+                out.bind()
+                mavica.use()
+                mavica.setMatrix("uUvTransform", identity)
+                mavica.set("uSrcSize", w.toFloat(), h.toFloat())
+                mavica.setUnsigned("uFrame", frame)
+                mavica.set("uSaturation", p.saturation)
+                mavica.set("uContrast", p.contrast)
+                mavica.set("uKnee", p.highlightKnee)
+                mavica.set("uSmear", p.smear)
+                mavica.set("uSharpen", p.sharpen)
+                mavica.set("uNoise", p.noise)
+                mavica.set("uTint", p.tintR, p.tintG, p.tintB)
+                mavica.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                mavica.setTexture("uGlow", 1, GLES30.GL_TEXTURE_2D, g.texture)
                 draw()
             }
             is LookSpec.Disposable -> {
@@ -432,8 +557,10 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
     }
 
     fun release() {
-        listOf(input, vhsChroma, vhsTape, ccd, glow, film, polaroid, gameBoy, webcam, cctv, trail, super8, disposable, filmStock, present)
-            .forEach { it.release() }
+        listOf(
+            input, vhsChroma, vhsTape, ccd, glow, film, polaroid, gameBoy, webcam, cctv, trail, super8, disposable, filmStock,
+            miniDv, nightShot, crt, flipPhone, thermal, mavica, present,
+        ).forEach { it.release() }
         (listOf(working, chroma, glowTarget, result) + trailTargets).forEach { it.release() }
         GLES30.glDeleteBuffers(1, intArrayOf(vertexBuffer), 0)
         GLES30.glDeleteVertexArrays(1, intArrayOf(vertexArray), 0)
@@ -443,6 +570,9 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
     private companion object {
         const val NIGHT_GAIN = 1.5f
         const val TRAIL_AMOUNT = 0.82f
+
+        /** How much night mode's trail keeps of the previous frame, at full ghost. */
+        const val NIGHT_TRAIL = 1.4f
 
         fun CamcorderEffect.shaderIndex(): Float = when (this) {
             CamcorderEffect.NIGHT_VISION -> 1f

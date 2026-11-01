@@ -82,6 +82,7 @@ fun ViewerScreen(
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val gifProgress by viewModel.gifProgress.collectAsStateWithLifecycle()
+    val tvProgress by viewModel.tvProgress.collectAsStateWithLifecycle()
     val list = items
     if (list == null) {
         Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) { LoadingIndicator() }
@@ -98,13 +99,17 @@ fun ViewerScreen(
     // Where the video on screen is, so a GIF starts there.
     var videoPosition by remember { mutableLongStateOf(0L) }
     val snackbar = remember { SnackbarHostState() }
-    val gifSaved = stringResource(R.string.msg_gif_saved)
-    val gifFailed = stringResource(R.string.msg_gif_failed)
+    val messageTexts = mapOf(
+        GalleryMessage.GIF_SAVED to stringResource(R.string.msg_gif_saved),
+        GalleryMessage.GIF_FAILED to stringResource(R.string.msg_gif_failed),
+        GalleryMessage.TV_SAVED to stringResource(R.string.msg_tv_saved),
+        GalleryMessage.TV_FAILED to stringResource(R.string.msg_tv_failed),
+    )
     val noOriginal = stringResource(R.string.restyle_no_original)
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { message ->
             snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar(if (message == GalleryMessage.GIF_SAVED) gifSaved else gifFailed)
+            snackbar.showSnackbar(messageTexts.getValue(message))
         }
     }
 
@@ -140,9 +145,16 @@ fun ViewerScreen(
                 IconButton(
                     onClick = { viewModel.makeGif(current, (videoPosition - GIF_LEAD_MILLIS).coerceAtLeast(0L)) },
                     shapes = IconButtonDefaults.shapes(),
-                    enabled = gifProgress == null,
+                    enabled = gifProgress == null && tvProgress == null,
                 ) {
                     Icon(painterResource(R.drawable.ic_gif_box), contentDescription = stringResource(R.string.make_gif))
+                }
+                IconButton(
+                    onClick = { viewModel.makeTvClip(current) },
+                    shapes = IconButtonDefaults.shapes(),
+                    enabled = gifProgress == null && tvProgress == null,
+                ) {
+                    Icon(painterResource(R.drawable.ic_live_tv), contentDescription = stringResource(R.string.make_tv_clip))
                 }
             } else if (current != null && !current.isGif) {
                 IconButton(
@@ -166,16 +178,18 @@ fun ViewerScreen(
             }
         }
 
+        val busy = gifProgress?.let { R.string.gif_making to it } ?: tvProgress?.let { R.string.tv_making to it }
         AnimatedVisibility(
-            visible = gifProgress != null,
+            visible = busy != null,
             enter = fadeIn() + scaleIn(initialScale = 0.8f),
             exit = fadeOut() + scaleOut(targetScale = 0.8f),
             modifier = Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 16.dp),
         ) {
-            // Keeps the last value while the pill animates away.
-            var lastProgress by remember { mutableFloatStateOf(0f) }
-            SideEffect { gifProgress?.let { lastProgress = it } }
-            BusyPill(label = stringResource(R.string.gif_making), progress = gifProgress ?: lastProgress)
+            // Keeps the last label and value while the pill animates away.
+            var last by remember { mutableStateOf(R.string.gif_making to 0f) }
+            SideEffect { busy?.let { last = it } }
+            val (label, progress) = busy ?: last
+            BusyPill(label = stringResource(label), progress = progress)
         }
 
         SnackbarHost(

@@ -91,3 +91,56 @@ export const FILM_STOCKS = {
     halation: 0.3, halationTint: [1, 0.3, 0.1], grain: 0.11, grainSize: 1.9, redGrain: 0.8, vignette: 0.35,
   },
 };
+
+// Late-90s MiniDV camcorder with a fisheye.
+export const MINIDV = {
+  fisheye: 0.6, hood: 0.6, comb: 1.2, sharpen: 0.6, saturation: 1.15, contrast: 1.1, noise: 0.03, vignette: 0.25,
+};
+
+// Infrared night mode of a camcorder.
+export const NIGHTSHOT = { gain: 1.5, glow: 0.6, ghost: 0.35, noise: 0.14, spot: 0.5, scanlines: 0.15 };
+
+// A picture on a curved CRT television.
+export const CRT = {
+  curvature: 0.6, mask: 0.6, scanlines: 0.5, flicker: 0.4, glow: 0.5, saturation: 1.1, glare: 0.35, vignette: 0.35,
+};
+
+// 2004 camera phone filming 3GP.
+export const FLIP = {
+  blockiness: 0.7, noise: 0.14, saturation: 0.85, contrast: 1.25, tint: [1.04, 1.02, 0.86], sharpen: 0.5,
+};
+
+// Thermal receipt printer camera.
+export const THERMAL = { contrast: 1.35, brightness: 0.06, dither: 1.0, paper: 0.6, fade: 0.12 };
+
+// Sony Mavica floppy-disk camera.
+export const MAVICA = {
+  saturation: 0.95, contrast: 1.2, highlightKnee: 0.74, smear: 0.6, sharpen: 0.5, noise: 0.035,
+  tint: [0.96, 1.0, 1.06], jpegQuality: 55,
+};
+
+// More stocks for filmstock.frag. Silver 400 is black and white (saturation 0 at any strength).
+Object.assign(FILM_STOCKS, {
+  SILVER: {
+    exposure: 0.05, contrast: 1.35, fade: 0, matrix: [1, 0, 0, 0, 1, 0, 0, 0, 0.6],
+    saturation: 0, shadowTint: [1, 1, 1], highlightTint: [1, 1, 1],
+    halation: 0, halationTint: [1, 0.3, 0.1], grain: 0.16, grainSize: 2.2, redGrain: 0, vignette: 0.7,
+  },
+  AEROCHROME: {
+    exposure: 0.1, contrast: 1.12, fade: 0.02, matrix: [0.3, 1.1, -0.6, 1, 0, 0, 0, 0.6, 0.1],
+    saturation: 1.15, shadowTint: [1, 0.96, 1.02], highlightTint: [1.02, 1, 0.96],
+    halation: 0.5, halationTint: [1, 0.35, 0.5], grain: 0.07, grainSize: 1.8, redGrain: 0.3, vignette: 0.25,
+  },
+  CROSS: {
+    exposure: 0.1, contrast: 1.35, fade: 0.03, matrix: [1.1, -0.05, -0.05, 0.05, 1.1, -0.05, -0.1, 0.1, 0.85],
+    saturation: 1.35, shadowTint: [0.74, 1.16, 0.86], highlightTint: [1.14, 0.9, 1.12],
+    halation: 1, halationTint: [1, 0.2, 0.8], grain: 0.08, grainSize: 1.9, redGrain: 0.4, vignette: 0.65,
+    softness: 1.3,
+  },
+  SLIDE: {
+    exposure: -0.15, contrast: 1.32, fade: 0, matrix: [1.04, -0.02, 0, -0.02, 1.03, 0, 0, -0.02, 1.06],
+    saturation: 1.45, shadowTint: [0.97, 0.95, 1.04], highlightTint: [1.02, 1, 0.98],
+    halation: 0.1, halationTint: [1, 0.3, 0.1], grain: 0.035, grainSize: 1.3, redGrain: 0.2, vignette: 0.18,
+    mount: 1,
+  },
+});

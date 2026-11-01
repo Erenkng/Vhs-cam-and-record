@@ -17,6 +17,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
+import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.camera.CameraCapabilities
 import io.github.erenkng.vhscam.camera.ExposureInfo
 import io.github.erenkng.vhscam.camera.ZoomInfo
@@ -25,6 +26,7 @@ import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.IntervalSetting
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.LookCategory
 import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.media.CapturedMedia
 import io.github.erenkng.vhscam.media.LabRoll
@@ -40,6 +42,7 @@ import io.github.erenkng.vhscam.ui.camera.FocusStatus
 import io.github.erenkng.vhscam.ui.camera.FocusUi
 import io.github.erenkng.vhscam.ui.camera.IntervalUi
 import io.github.erenkng.vhscam.ui.camera.LookBrowserContent
+import io.github.erenkng.vhscam.ui.camera.LookBrowserExtra
 import io.github.erenkng.vhscam.ui.camera.ProSetting
 import io.github.erenkng.vhscam.ui.camera.RecordingUi
 import io.github.erenkng.vhscam.ui.camera.RollContent
@@ -235,7 +238,20 @@ class ScreenshotTest {
     fun lookBrowser() = capture("16_look_browser") {
         VhsCamTheme(darkTheme = true, dynamicColor = false) {
             Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                LookBrowserContent(options = Look.entries, selected = Look.RED_GRAIN, onSelect = {})
+                LookBrowserContent(
+                    options = Look.entries,
+                    selected = Look.RED_GRAIN,
+                    onSelect = {},
+                    extras = listOf(
+                        LookBrowserExtra(
+                            category = LookCategory.FILM,
+                            image = R.drawable.onboarding_double,
+                            label = R.string.shot_double,
+                            description = R.string.look_desc_double,
+                            icon = R.drawable.ic_join,
+                        ) {},
+                    ),
+                )
             }
         }
     }

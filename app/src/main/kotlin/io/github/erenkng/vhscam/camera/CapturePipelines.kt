@@ -10,6 +10,7 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Typeface
@@ -107,11 +108,12 @@ class PhotoPipeline(
         upright.recycle()
 
         return withContext(Dispatchers.IO) {
-            val finished = framed(rendered, spec)
+            val finished = framed(rendered, spec, capturedAt)
             val quality = when (spec) {
                 is LookSpec.Ccd -> spec.params.jpegQuality
-                // Keep the pixel edges sharp.
-                is LookSpec.GameBoy -> 96
+                is LookSpec.Mavica -> spec.params.jpegQuality
+                // Keep the pixel and dot edges sharp.
+                is LookSpec.GameBoy, is LookSpec.Thermal -> 96
                 else -> JPEG_QUALITY
             }
             val out = File(context.cacheDir, "develop_${System.nanoTime()}.jpg")
@@ -120,6 +122,22 @@ class PhotoPipeline(
             rendered.recycle()
             writeExif(out, capturedAt)
             out
+        }
+    }
+
+    /** Saves a frame taken from the live picture while filming (already looked and upright) as a photo. */
+    suspend fun saveStill(still: Bitmap, look: Look, capturedAt: LocalDateTime, capturedAtMillis: Long): Uri {
+        val file = withContext(Dispatchers.IO) {
+            val out = File(context.cacheDir, "still_${System.nanoTime()}.jpg")
+            out.outputStream().use { still.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
+            still.recycle()
+            writeExif(out, capturedAt)
+            out
+        }
+        return try {
+            media.savePhoto(file, FileNames.photo(capturedAt, look), capturedAtMillis)
+        } finally {
+            file.delete()
         }
     }
 
@@ -209,9 +227,13 @@ class PhotoPipeline(
             seedFrame = PREVIEW_SEED,
         )
         return withContext(Dispatchers.Default) {
-            // The digicam's JPEG blocks are part of its look.
-            val compressed = if (spec is LookSpec.Ccd) recompressed(rendered, spec.params.jpegQuality) else rendered
-            framed(compressed, spec).also { if (it !== compressed) compressed.recycle() }
+            // The digicams' JPEG blocks are part of their look.
+            val compressed = when (spec) {
+                is LookSpec.Ccd -> recompressed(rendered, spec.params.jpegQuality)
+                is LookSpec.Mavica -> recompressed(rendered, spec.params.jpegQuality)
+                else -> rendered
+            }
+            framed(compressed, spec, LocalDateTime.now()).also { if (it !== compressed) compressed.recycle() }
         }
     }
 
@@ -226,10 +248,66 @@ class PhotoPipeline(
     }
 
     /** The paper or plastic around the picture, for looks that have one. */
-    private fun framed(rendered: Bitmap, spec: LookSpec): Bitmap = when (spec) {
+    private fun framed(rendered: Bitmap, spec: LookSpec, capturedAt: LocalDateTime): Bitmap = when (spec) {
         is LookSpec.Polaroid -> instantFrame(rendered)
         is LookSpec.GameBoy -> pixelFrame(rendered, spec.params.shades)
+        is LookSpec.Thermal -> receipt(rendered, capturedAt)
         else -> rendered
+    }
+
+    /**
+     * The till roll a thermal camera prints on: paper a little wider than the 384 dot picture,
+     * the camera's name above it, the date under it, and torn edges top and bottom - on a dark
+     * table, since a JPEG has no transparency. Layout matches the lab's receipt().
+     */
+    private fun receipt(image: Bitmap, capturedAt: LocalDateTime): Bitmap {
+        val s = image.width / 384f
+        val margin = 40 * s
+        val head = 110 * s
+        val foot = 120 * s
+        val width = image.width + 2 * margin
+        val height = image.height + head + foot
+        val out = Bitmap.createBitmap(width.toInt(), height.toInt(), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        canvas.drawColor(TABLE_COLOR)
+        val tooth = 12 * s
+        val paper = Path().apply {
+            moveTo(0f, tooth)
+            var x = 0f
+            while (x < width) {
+                lineTo(minOf(x + tooth, width), 0f)
+                lineTo(minOf(x + tooth * 2, width), tooth)
+                x += tooth * 2
+            }
+            lineTo(width, height - tooth)
+            x = width
+            while (x > 0f) {
+                lineTo(maxOf(x - tooth, 0f), height)
+                lineTo(maxOf(x - tooth * 2, 0f), height - tooth)
+                x -= tooth * 2
+            }
+            close()
+        }
+        canvas.drawPath(paper, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = RECEIPT_COLOR })
+        // Unfiltered, so the printed dots stay sharp.
+        canvas.drawBitmap(image, margin, head, null)
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = ResourcesCompat.getFont(context, R.font.vt323) ?: Typeface.MONOSPACE
+            color = INK_COLOR
+            textAlign = Paint.Align.CENTER
+        }
+        val centre = width / 2f
+        val below = head + image.height
+        text.textSize = 46 * s
+        canvas.drawText("VHS CAM", centre, head * 0.55f, text)
+        text.textSize = 26 * s
+        canvas.drawText(RECEIPT_RULE, centre, head * 0.85f, text)
+        canvas.drawText(RECEIPT_RULE, centre, below + foot * 0.25f, text)
+        text.textSize = 32 * s
+        canvas.drawText(capturedAt.format(RECEIPT_DATE), centre, below + foot * 0.52f, text)
+        text.textSize = 26 * s
+        canvas.drawText(context.getString(R.string.receipt_thanks), centre, below + foot * 0.78f, text)
+        return out
     }
 
     /** Develops photobooth shots with a look and prints them on one strip. */
@@ -391,6 +469,9 @@ class PhotoPipeline(
         const val PAPER_COLOR = 0xFFF4F1EA.toInt()
         const val INK_COLOR = 0xFF3B3836.toInt()
         const val STRIP_FRAME_EDGE = 900
+        const val RECEIPT_COLOR = 0xFFF4F2EC.toInt()
+        const val TABLE_COLOR = 0xFF2A2826.toInt()
+        const val RECEIPT_RULE = "- - - - - - - - - - - - - -"
         const val GHOST_EDGE = 720
 
         /** Each exposure of a double exposure gets this much of its light. */
@@ -399,6 +480,7 @@ class PhotoPipeline(
         /** Previews use the same grain every time, so only the changes the user makes show. */
         const val PREVIEW_SEED = 4_242
         val STRIP_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+        val RECEIPT_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy  HH:mm")
         val EXIF_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
     }
 }

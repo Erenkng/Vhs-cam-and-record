@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.erenkng.vhscam"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1100
-        versionName = "1.1"
+        versionCode = 1200
+        versionName = "1.2"
     }
 
     signingConfigs {

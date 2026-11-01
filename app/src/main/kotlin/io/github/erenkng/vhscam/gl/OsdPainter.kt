@@ -91,6 +91,23 @@ class OsdPainter(context: Context) {
         }
     }
 
+    /** MiniDV display: the tape's timecode top-right, the data code (time, date) bottom-right. */
+    fun dvOverlay(canvas: Canvas, w: Int, h: Int, timecode: String?, time: String?, date: String?) {
+        val size = h * 0.065f
+        fill.textSize = size
+        if (timecode != null) {
+            val tw = fill.measureText(timecode)
+            outlinedText(canvas, timecode, w * 0.93f - tw, h * 0.13f, size, Color.WHITE)
+        }
+        var y = h * 0.91f
+        for (line in listOfNotNull(date, time)) {
+            fill.textSize = size
+            val tw = fill.measureText(line)
+            outlinedText(canvas, line, w * 0.93f - tw, y, size, Color.WHITE)
+            y -= size * 1.05f
+        }
+    }
+
     /** Digital camera imprint, amber, bottom-right. */
     fun digitalStamp(canvas: Canvas, w: Int, h: Int, text: String) {
         val size = h * 0.055f

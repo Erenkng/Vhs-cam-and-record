@@ -81,7 +81,7 @@ fun ProPanel(state: CameraUiState, actions: CameraActions, open: ProSetting?, on
                     options = Look.entries,
                     selected = state.settings.photoLook,
                     onSelect = { look -> actions.onSettingsChange { it.copy(photoLook = look) } },
-                    image = { it.sample() },
+                    image = { it.thumbnail() },
                     label = { stringResource(it.label()) },
                 )
                 ProSetting.ISO -> RulerDial(
