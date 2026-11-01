@@ -50,10 +50,13 @@ const samples = [
   { name: 'flip', look: 'FLIP' },
   // Print dots are crisp only at whole multiples of the 384 dot head.
   { name: 'thermal', look: 'THERMAL', outWidth: 768 },
-  { name: 'vhs_night', look: 'VHS', effect: 'NIGHT', overrides: { lumaNoise: 0.08 } },
-  { name: 'vhs_sepia', look: 'VHS', effect: 'SEPIA' },
-  { name: 'vhs_mono', look: 'VHS', effect: 'MONO' },
-  { name: 'vhs_mosaic', look: 'VHS', mosaic: 12 },
+  // The camcorder effects, without the VCR's text: the onboarding draws a live camcorder
+  // display over them, so the digital zoom moves only the picture.
+  { name: 'fx_none', look: 'VHS', osd: {} },
+  { name: 'fx_night', look: 'VHS', effect: 'NIGHT', overrides: { lumaNoise: 0.08 }, osd: {} },
+  { name: 'fx_sepia', look: 'VHS', effect: 'SEPIA', osd: {} },
+  { name: 'fx_mono', look: 'VHS', effect: 'MONO', osd: {} },
+  { name: 'fx_mosaic', look: 'VHS', mosaic: 12, osd: {} },
 ];
 for (const sample of samples) {
   const url = await page.evaluate((opts) => window.renderToDataUrl(opts), {

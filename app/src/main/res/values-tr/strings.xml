@@ -211,11 +211,11 @@
     <string name="onboarding_1_title">Kaset takıldı</string>
     <string name="onboarding_1_body">VHS Cam telefonunu 90\'ların camcorder\'ına çevirir: modern bir kamera, geçmişten gelmiş gibi görüntüler.</string>
     <string name="onboarding_2_title">Her dönemin kamerası</string>
-    <string name="onboarding_2_body">VHS, 2000\'lerin dijital kamerası, 35mm film, Polaroid, 8-bit, 2005 webcam ve güvenlik kamerası.</string>
+    <string name="onboarding_2_body">VHS\'ten gece görüşüne ev videosu, 35mm\'den slayta film, ilk dijital kameralardan 8-bit\'e dijital.</string>
     <string name="onboarding_3_title">Camcorder tuşları</string>
     <string name="onboarding_3_body">Fader, gece görüşü, sepya ve mozaik, dijital zoom, aralıklı kayıt, çift çekim ve VCR mavi ekranı.</string>
     <string name="onboarding_4_title">Paylaşmaya hazır</string>
-    <string name="onboarding_4_body">Fotokabin şeritleri, retro GIF\'ler ve fotoğrafın stilini sonradan değiştirme. Hepsi Kasetler\'de.</string>
+    <string name="onboarding_4_body">Fotokabin şeritleri, çift pozlama, stop-motion ve retro GIF\'ler; fotoğrafın stili sonradan da değişebilir. Hepsi Kasetler\'de.</string>
     <string name="looks_title">Stiller</string>
     <plurals name="looks_count">
         <item quantity="one">%d stil</item>

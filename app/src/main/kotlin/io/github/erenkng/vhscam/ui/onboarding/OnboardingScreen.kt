@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -52,10 +53,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -70,9 +76,17 @@ import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.ui.theme.CameraColors
 import io.github.erenkng.vhscam.ui.theme.VhsCamTheme
 import io.github.erenkng.vhscam.ui.theme.Vt323
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.sin
+import kotlin.random.Random
 
 private class Page(val title: Int, val body: Int)
 
@@ -136,6 +150,8 @@ fun OnboardingContent(onDone: () -> Unit, modifier: Modifier = Modifier, initial
                 HorizontalPager(
                     state = pager,
                     userScrollEnabled = !leaving,
+                    // Neighbours stay composed, so their pictures are decoded before a swipe.
+                    beyondViewportPageCount = 1,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 ) { page ->
                     PageContent(page, pager)
@@ -176,7 +192,10 @@ fun OnboardingContent(onDone: () -> Unit, modifier: Modifier = Modifier, initial
 
 private val Background = Color(0xFF0C0B0F)
 
-/** A soft light behind the art that takes each page's colour as the pages slide. */
+/**
+ * Soft lights drifting slowly behind the art. They take each page's colour as the pages slide,
+ * and slide a little against them.
+ */
 @Composable
 private fun Backdrop(pager: PagerState) {
     val colors = listOf(
@@ -185,8 +204,8 @@ private fun Backdrop(pager: PagerState) {
         Color(0xFF3DDC84),
         MaterialTheme.colorScheme.secondary,
     )
-    val breathe = rememberInfiniteTransition(label = "backdrop")
-    val pulse by breathe.animateFloat(0.85f, 1.1f, infiniteRepeatable(tween(4_000), RepeatMode.Reverse), label = "pulse")
+    val drift = rememberInfiniteTransition(label = "backdrop")
+    val turn by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(BACKDROP_MILLIS, easing = LinearEasing)), label = "turn")
     Box(
         Modifier
             .fillMaxSize()
@@ -194,15 +213,29 @@ private fun Backdrop(pager: PagerState) {
                 val position = (pager.currentPage + pager.currentPageOffsetFraction).coerceIn(0f, (colors.size - 1).toFloat())
                 val from = floor(position).toInt()
                 val to = (from + 1).coerceAtMost(colors.lastIndex)
-                val color = lerp(colors[from], colors[to], position - from)
-                drawRect(
-                    Brush.radialGradient(
-                        listOf(color.copy(alpha = 0.32f), Color.Transparent),
-                        center = Offset(size.width / 2f, size.height * 0.36f),
-                        radius = size.width * 0.75f * pulse,
-                    ),
+                val main = lerp(colors[from], colors[to], position - from)
+                val other = lerp(colors[(from + 1) % colors.size], colors[(to + 1) % colors.size], position - from)
+                val a = turn * 2f * PI.toFloat()
+                val w = size.width
+                val h = size.height
+                val slide = position * w * 0.06f
+                light(main, 0.34f, Offset(w * 0.5f + cos(a) * w * 0.14f - slide, h * 0.34f + sin(a) * h * 0.04f), w * 0.8f)
+                light(other, 0.2f, Offset(w * 0.15f + sin(2f * a) * w * 0.1f - slide * 0.5f, h * 0.6f + cos(a) * h * 0.05f), w * 0.6f)
+                light(
+                    lerp(main, Color.White, 0.3f),
+                    0.12f,
+                    Offset(w * 0.88f + cos(a + 2f) * w * 0.08f - slide * 1.5f, h * 0.16f + sin(1.5f * a) * h * 0.04f),
+                    w * 0.5f,
                 )
             },
+    )
+}
+
+private fun DrawScope.light(color: Color, alpha: Float, center: Offset, radius: Float) {
+    drawCircle(
+        Brush.radialGradient(listOf(color.copy(alpha = alpha), Color.Transparent), center = center, radius = radius),
+        radius = radius,
+        center = center,
     )
 }
 
@@ -241,40 +274,78 @@ private fun TopRow(showSkip: Boolean, onSkip: () -> Unit) {
     }
 }
 
-/** A page: its art sliding a little slower than the text, for depth. */
+/**
+ * A page: its art sliding a little slower than the text, for depth. Like changing channels on
+ * an old TV, the art fills with static while it slides and tunes in with a burst of it when it
+ * settles, the channel number showing in green; the title and text then spring into place.
+ */
 @Composable
 private fun PageContent(page: Int, pager: PagerState) {
     val active = pager.settledPage == page
+    val distance = { pageDistance(pager.currentPage, pager.currentPageOffsetFraction, page) }
+    val snow = rememberSnow()
+    val tune = remember { Animatable(0f) }
+    val titleRise = remember { Animatable(1f) }
+    val bodyRise = remember { Animatable(1f) }
+    LaunchedEffect(active) {
+        if (active) {
+            launch {
+                tune.snapTo(1f)
+                tune.animateTo(0f, tween(TUNE_MILLIS, easing = LinearEasing))
+            }
+            launch { titleRise.animateTo(0f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessLow)) }
+            launch {
+                delay(BODY_DELAY_MILLIS)
+                bodyRise.animateTo(0f, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessLow))
+            }
+        } else {
+            // Off screen by now: ready to rise again next time.
+            tune.snapTo(0f)
+            titleRise.snapTo(1f)
+            bodyRise.snapTo(1f)
+        }
+    }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .graphicsLayer {
-                    val distance = pageDistance(pager.currentPage, pager.currentPageOffsetFraction, page)
-                    val shown = pageVisibility(distance)
-                    translationX = distance * size.width * 0.45f
+                    val d = distance()
+                    val shown = pageVisibility(d)
+                    val noise = channelNoise(d, tune.value)
+                    // The picture jumps sideways while the static is on.
+                    val jitter = if (noise > MIN_STATIC) (Random(staticSeed(d, tune.value)).nextFloat() - 0.5f) * noise * Jitter.toPx() else 0f
+                    translationX = d * size.width * 0.45f + jitter
                     alpha = shown
                     scaleX = 0.88f + 0.12f * shown
                     scaleY = 0.88f + 0.12f * shown
+                    // Static covers only the art, which takes a layer of its own while it shows.
+                    compositingStrategy = if (noise > MIN_STATIC) CompositingStrategy.Offscreen else CompositingStrategy.Auto
+                }
+                .drawWithContent {
+                    drawContent()
+                    val d = distance()
+                    drawStatic(snow, channelNoise(d, tune.value), staticSeed(d, tune.value), BlendMode.SrcAtop)
                 },
             contentAlignment = Alignment.Center,
         ) {
             when (page) {
-                0 -> CassetteArt(active)
-                1 -> LookCardFan(active)
+                0 -> CassetteArt(active, scrub = distance)
+                1 -> LookCoverFlow(active)
                 2 -> EffectsShowcase(active)
                 else -> ShareShowcase(active)
             }
+            ChannelOsd(channel = page + 1, active = active, modifier = Modifier.align(Alignment.TopEnd))
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 28.dp)
                 .graphicsLayer {
-                    val distance = pageDistance(pager.currentPage, pager.currentPageOffsetFraction, page)
-                    translationX = distance * size.width * 0.15f
-                    alpha = pageVisibility(distance)
+                    val d = distance()
+                    translationX = d * size.width * 0.15f
+                    alpha = pageVisibility(d)
                 },
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -282,17 +353,67 @@ private fun PageContent(page: Int, pager: PagerState) {
                 text = stringResource(Pages[page].title),
                 style = MaterialTheme.typography.displaySmallEmphasized,
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.graphicsLayer {
+                    translationY = titleRise.value * TitleRise.toPx()
+                    alpha = 1f - titleRise.value * 0.6f
+                },
             )
             Text(
                 text = stringResource(Pages[page].body),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 minLines = 3,
+                modifier = Modifier.graphicsLayer {
+                    translationY = bodyRise.value * BodyRise.toPx()
+                    alpha = 1f - bodyRise.value * 0.7f
+                },
             )
         }
         Spacer(Modifier.height(20.dp))
     }
 }
+
+/** Static over a page: some while it slides, most halfway, and a burst as it tunes in. */
+private fun channelNoise(distance: Float, tune: Float): Float {
+    val sliding = sin(PI.toFloat() * abs(distance).coerceAtMost(1f))
+    return max(sliding * SLIDE_STATIC, tune * TUNE_STATIC)
+}
+
+/** A different seed for every frame of the slide and of the burst, so the static moves. */
+private fun staticSeed(distance: Float, tune: Float): Int = (abs(distance) * 4_000f).toInt() * 31 + (tune * 1_000f).toInt()
+
+/** The channel number an old TV shows in green for a moment after switching. */
+@Composable
+private fun ChannelOsd(channel: Int, active: Boolean, modifier: Modifier = Modifier) {
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(active) {
+        if (active) {
+            shown.snapTo(1f)
+            delay(CHANNEL_MILLIS)
+            shown.animateTo(0f, tween(CHANNEL_FADE_MILLIS))
+        } else {
+            shown.snapTo(0f)
+        }
+    }
+    Text(
+        text = String.format(Locale.ROOT, "CH %02d", channel),
+        style = TextStyle(
+            fontFamily = Vt323,
+            fontSize = 34.sp,
+            letterSpacing = 2.sp,
+            shadow = Shadow(OsdGreen.copy(alpha = 0.7f), blurRadius = 14f),
+        ),
+        color = OsdGreen,
+        modifier = modifier
+            .padding(top = 4.dp, end = 24.dp)
+            .graphicsLayer { alpha = shown.value },
+    )
+}
+
+private val OsdGreen = Color(0xFF6CFF7A)
+private val Jitter = 14.dp
+private val TitleRise = 26.dp
+private val BodyRise = 34.dp
 
 /** Dots that stretch into a pill under the current page, following the finger. */
 @Composable
@@ -340,3 +461,11 @@ private fun NextButton(last: Boolean, onClick: () -> Unit) {
 }
 
 private const val POWER_OFF_MILLIS = 460
+private const val BACKDROP_MILLIS = 18_000
+private const val TUNE_MILLIS = 450
+private const val BODY_DELAY_MILLIS = 70L
+private const val CHANNEL_MILLIS = 2_200L
+private const val CHANNEL_FADE_MILLIS = 400
+private const val SLIDE_STATIC = 0.55f
+private const val TUNE_STATIC = 0.5f
+private const val MIN_STATIC = 0.005f

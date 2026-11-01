@@ -220,11 +220,11 @@
     <string name="onboarding_1_title">Tape loaded</string>
     <string name="onboarding_1_body">VHS Cam turns your phone into a 90s camcorder: a modern camera with footage straight from the past.</string>
     <string name="onboarding_2_title">A camera for every era</string>
-    <string name="onboarding_2_body">VHS, an early-2000s digicam, 35mm film, instant film, 8-bit, a 2005 webcam and CCTV.</string>
+    <string name="onboarding_2_body">Home video from VHS to night vision, film from 35mm to slides, digital from early digicams to 8-bit.</string>
     <string name="onboarding_3_title">Camcorder buttons</string>
     <string name="onboarding_3_body">Fader, night vision, sepia and mosaic, digital zoom, interval REC, dual recording and the VCR blue screen.</string>
     <string name="onboarding_4_title">Ready to share</string>
-    <string name="onboarding_4_body">Photobooth strips, retro GIFs and changing a photo\'s look later. It all ends up in your Tapes.</string>
+    <string name="onboarding_4_body">Photobooth strips, double exposures, stop-motion and retro GIFs, and a photo\'s look can change later. It all ends up in your Tapes.</string>
     <string name="looks_title">Looks</string>
     <plurals name="looks_count">
         <item quantity="one">%d look</item>
