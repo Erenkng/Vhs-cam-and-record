@@ -250,6 +250,7 @@
     <string name="look_desc_mavica">Disketli kamera: keskin pikseller, patlayan ışıklar ve sensör izi.</string>
     <string name="look_desc_flip">2004 kameralı telefon: küçük, bloklu, mor-yeşil gürültülü.</string>
     <string name="look_desc_thermal">Fiş kâğıdına basar: siyah-beyaz noktalarla bir fiş.</string>
+    <string name="look_desc_double">İki çekim tek karede: her stille çalışan bir çekim modu.</string>
     <string name="roll_title">Kullan-at rulo</string>
     <plurals name="roll_left">
         <item quantity="one">%d poz kaldı</item>

@@ -57,19 +57,46 @@ import io.github.erenkng.vhscam.core.look.Look
 import io.github.erenkng.vhscam.core.look.LookCategory
 import kotlinx.coroutines.launch
 
+/**
+ * A shooting mode offered among the looks of [category], where people look for it (double
+ * exposure with the films). [onClick] turns it on.
+ */
+class LookBrowserExtra(
+    val category: LookCategory,
+    val image: Int,
+    val label: Int,
+    val description: Int,
+    val icon: Int,
+    val selected: Boolean = false,
+    val onClick: () -> Unit,
+)
+
 /** Every look to choose from, as a sheet: grouped by kind of camera, with a sample of each. */
 @Composable
-fun LookBrowserSheet(options: List<Look>, selected: Look, onSelect: (Look) -> Unit, onDismiss: () -> Unit) {
+fun LookBrowserSheet(
+    options: List<Look>,
+    selected: Look,
+    onSelect: (Look) -> Unit,
+    onDismiss: () -> Unit,
+    extras: List<LookBrowserExtra> = emptyList(),
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val scope = rememberCoroutineScope()
+    // Let the sheet slide away before it leaves the composition.
+    val close = { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         LookBrowserContent(
             options = options,
             selected = selected,
             onSelect = { look ->
                 onSelect(look)
-                // Let the sheet slide away before it leaves the composition.
-                scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                close()
+            },
+            extras = extras.map { extra ->
+                LookBrowserExtra(extra.category, extra.image, extra.label, extra.description, extra.icon, extra.selected) {
+                    extra.onClick()
+                    close()
+                }
             },
         )
     }
@@ -77,7 +104,13 @@ fun LookBrowserSheet(options: List<Look>, selected: Look, onSelect: (Look) -> Un
 
 /** The browser without the sheet around it, so it can be screenshot-tested. */
 @Composable
-fun LookBrowserContent(options: List<Look>, selected: Look, onSelect: (Look) -> Unit, modifier: Modifier = Modifier) {
+fun LookBrowserContent(
+    options: List<Look>,
+    selected: Look,
+    onSelect: (Look) -> Unit,
+    modifier: Modifier = Modifier,
+    extras: List<LookBrowserExtra> = emptyList(),
+) {
     val sections = remember(options) { options.groupBy { it.category }.toSortedMap() }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(152.dp),
@@ -108,6 +141,9 @@ fun LookBrowserContent(options: List<Look>, selected: Look, onSelect: (Look) -> 
             }
             items(looks, key = { "look_${it.name}" }) { look ->
                 LookCard(look = look, selected = look == selected, onClick = { onSelect(look) })
+            }
+            items(extras.filter { it.category == category }, key = { "extra_${it.label}" }) { extra ->
+                ExtraCard(extra)
             }
         }
     }
@@ -215,6 +251,93 @@ private fun LookCard(look: Look, selected: Boolean, onClick: () -> Unit) {
             )
             Text(
                 stringResource(look.description()),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                maxLines = 2,
+                minLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** A shooting mode's card: its sample with the mode's icon, its name and what it does. */
+@Composable
+private fun ExtraCard(extra: LookBrowserExtra) {
+    val motion = MaterialTheme.motionScheme
+    val colors = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.95f else 1f, motion.fastSpatialSpec(), label = "press")
+    val outline by animateDpAsState(if (extra.selected) 3.dp else 0.dp, motion.fastSpatialSpec(), label = "outline")
+    val outlineColor by animateColorAsState(
+        if (extra.selected) colors.tertiary else Color.Transparent,
+        motion.defaultEffectsSpec(),
+        label = "outlineColor",
+    )
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .clickable(interactionSource = interaction, indication = null) {
+                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                extra.onClick()
+            }
+            .semantics {
+                role = Role.Switch
+                selected = extra.selected
+            },
+    ) {
+        Box {
+            Image(
+                painter = painterResource(extra.image),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(4f / 3f)
+                    .clip(shape)
+                    .border(outline, outlineColor, shape),
+            )
+            Surface(
+                shape = CircleShape,
+                color = colors.tertiaryContainer,
+                contentColor = colors.onTertiaryContainer,
+                modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
+            ) {
+                Icon(painterResource(extra.icon), contentDescription = null, modifier = Modifier.padding(5.dp).size(16.dp))
+            }
+            if (extra.selected) {
+                Surface(
+                    shape = CircleShape,
+                    color = colors.tertiary,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(26.dp),
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_check),
+                        contentDescription = null,
+                        tint = colors.onTertiary,
+                        modifier = Modifier.padding(4.dp),
+                    )
+                }
+            }
+        }
+        Column(Modifier.padding(horizontal = 4.dp)) {
+            Text(
+                stringResource(extra.label),
+                style = MaterialTheme.typography.titleSmallEmphasized,
+                color = if (extra.selected) colors.tertiary else colors.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                stringResource(extra.description),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.onSurfaceVariant,
                 maxLines = 2,

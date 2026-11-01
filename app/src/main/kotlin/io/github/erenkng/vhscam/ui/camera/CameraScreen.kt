@@ -103,6 +103,7 @@ import io.github.erenkng.vhscam.core.look.AspectSetting
 import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.LookCategory
 import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.media.CapturedMedia
@@ -379,6 +380,21 @@ private fun CameraLayout(
             selected = state.activeLook,
             onSelect = { look -> actions.onSettingsChange { if (state.isFilming) it.copy(videoLook = look) else it.copy(photoLook = look) } },
             onDismiss = { showLooks = false },
+            // Double exposure is a shooting mode, but people look for it with the films.
+            extras = if (state.isFilming) {
+                emptyList()
+            } else {
+                listOf(
+                    LookBrowserExtra(
+                        category = LookCategory.FILM,
+                        image = R.drawable.onboarding_double,
+                        label = R.string.shot_double,
+                        description = R.string.look_desc_double,
+                        icon = R.drawable.ic_join,
+                        selected = state.shot == ShotKind.DOUBLE,
+                    ) { actions.onSettingsChange { it.copy(mode = CaptureMode.PHOTO, shot = ShotKind.DOUBLE) } },
+                )
+            },
         )
     }
 }
@@ -842,7 +858,7 @@ private fun ChoicePanels(
                     onSelect = { look ->
                         actions.onSettingsChange { if (state.isFilming) it.copy(videoLook = look) else it.copy(photoLook = look) }
                     },
-                    image = { it.sample() },
+                    image = { it.thumbnail() },
                     label = { stringResource(it.label()) },
                     enabled = state.booth == null,
                     onSelectedClick = onOpenLooks,
@@ -1037,6 +1053,37 @@ fun Look.sample(): Int = when (this) {
     Look.FLIP -> R.drawable.onboarding_flip
     Look.THERMAL -> R.drawable.onboarding_thermal
     Look.CCTV -> R.drawable.onboarding_cctv
+}
+
+/**
+ * The look's round thumbnail in the dials: a summer day through the look, closed in on what
+ * tells it apart (its frame, its glow or grain, or the text it prints).
+ */
+fun Look.thumbnail(): Int = when (this) {
+    Look.VHS -> R.drawable.thumb_vhs
+    Look.SUPER8 -> R.drawable.thumb_super8
+    Look.MINIDV -> R.drawable.thumb_minidv
+    Look.NIGHTSHOT -> R.drawable.thumb_nightshot
+    Look.CRT -> R.drawable.thumb_crt
+    Look.FILM -> R.drawable.thumb_film
+    Look.GOLD -> R.drawable.thumb_gold
+    Look.PORTRAIT -> R.drawable.thumb_portrait
+    Look.CINE -> R.drawable.thumb_cine
+    Look.RED_GRAIN -> R.drawable.thumb_red_grain
+    Look.REDSCALE -> R.drawable.thumb_redscale
+    Look.SILVER -> R.drawable.thumb_silver
+    Look.AEROCHROME -> R.drawable.thumb_aerochrome
+    Look.CROSS -> R.drawable.thumb_cross
+    Look.SLIDE -> R.drawable.thumb_slide
+    Look.DISPOSABLE -> R.drawable.thumb_disposable
+    Look.POLAROID -> R.drawable.thumb_instant
+    Look.CCD -> R.drawable.thumb_ccd
+    Look.MAVICA -> R.drawable.thumb_mavica
+    Look.GAMEBOY -> R.drawable.thumb_gameboy
+    Look.WEBCAM -> R.drawable.thumb_webcam
+    Look.FLIP -> R.drawable.thumb_flip
+    Look.THERMAL -> R.drawable.thumb_thermal
+    Look.CCTV -> R.drawable.thumb_cctv
 }
 
 fun Look.label(): Int = when (this) {

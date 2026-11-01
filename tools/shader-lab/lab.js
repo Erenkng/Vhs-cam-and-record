@@ -488,6 +488,19 @@ window.renderToDataUrl = async (opts) => {
   return result.toDataURL(opts.format ?? 'image/png', opts.quality);
 };
 
+// For other page scripts (thumbs.js): the rendered canvas itself, copied so the next render
+// doesn't draw over it.
+window.renderCanvas = async (opts) => {
+  await ready;
+  const image = await loadImage(opts.imageUrl);
+  const result = await lab.render({ ...opts, image });
+  const copy = document.createElement('canvas');
+  copy.width = result.width;
+  copy.height = result.height;
+  copy.getContext('2d').drawImage(result, 0, 0);
+  return copy;
+};
+
 ready.then(() => {
   window.labReady = true;
 }).catch((e) => {

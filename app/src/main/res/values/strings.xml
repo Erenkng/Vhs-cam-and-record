@@ -259,6 +259,7 @@
     <string name="look_desc_mavica">Floppy-disk camera: sharp pixels, clipped highlights and sensor smear.</string>
     <string name="look_desc_flip">2004 camera phone: tiny, blocky and noisy in purple and green.</string>
     <string name="look_desc_thermal">Prints on till roll: black and white dots on a paper receipt.</string>
+    <string name="look_desc_double">Two shots on one frame: a shooting mode that works with any look.</string>
     <string name="roll_title">Disposable roll</string>
     <plurals name="roll_left">
         <item quantity="one">%d shot left</item>

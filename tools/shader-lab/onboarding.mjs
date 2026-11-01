@@ -63,4 +63,11 @@ for (const sample of samples) {
   fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
   console.log('wrote', path.relative(repo, file), fs.statSync(file).size, 'bytes');
 }
+// The double exposure mode's card among the film looks.
+await page.addScriptTag({ url: '/tools/shader-lab/thumbs.js', type: 'module' });
+await page.waitForFunction(() => window.doubleExposureDataUrl);
+const double = await page.evaluate((o) => window.doubleExposureDataUrl({ osd: o }), osd);
+const doubleFile = path.join(outDir, 'onboarding_double.webp');
+fs.writeFileSync(doubleFile, Buffer.from(double.split(',')[1], 'base64'));
+console.log('wrote', path.relative(repo, doubleFile), fs.statSync(doubleFile).size, 'bytes');
 await close();
