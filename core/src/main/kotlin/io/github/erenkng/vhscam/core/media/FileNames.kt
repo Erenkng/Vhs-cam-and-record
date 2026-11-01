@@ -17,6 +17,9 @@ object FileNames {
 
     fun gif(capturedAt: LocalDateTime): String = "GIF_${stamp(capturedAt)}.gif"
 
+    /** A stop-motion animation. */
+    fun animation(capturedAt: LocalDateTime): String = "ANIM_${stamp(capturedAt)}.mp4"
+
     private fun stamp(t: LocalDateTime): String = buildString {
         append(t.year.toString().padStart(4, '0'))
         append(t.monthValue.toString().padStart(2, '0'))

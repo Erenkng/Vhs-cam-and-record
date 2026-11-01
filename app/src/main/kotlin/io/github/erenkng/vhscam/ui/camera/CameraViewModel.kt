@@ -3,6 +3,7 @@ package io.github.erenkng.vhscam.ui.camera
 import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.media.MediaActionSound
 import android.net.Uri
 import android.util.Log
@@ -36,11 +37,16 @@ import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.FadeColor
 import io.github.erenkng.vhscam.core.look.IntervalSetting
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.core.media.FileNames
+import io.github.erenkng.vhscam.core.media.StopMotion
 import io.github.erenkng.vhscam.gl.LiveRenderState
 import io.github.erenkng.vhscam.gl.VhsSurfaceProcessor
 import io.github.erenkng.vhscam.media.CapturedMedia
+import io.github.erenkng.vhscam.media.Original
+import io.github.erenkng.vhscam.media.ReelState
+import io.github.erenkng.vhscam.media.RollState
 import io.github.erenkng.vhscam.settings.AppSettings
 import io.github.erenkng.vhscam.settings.FlashSetting
 import io.github.erenkng.vhscam.settings.TimerSetting
@@ -70,7 +76,7 @@ sealed interface RecordingUi {
     data class Active(val elapsedMillis: Long, val paused: Boolean) : RecordingUi
 }
 
-enum class BusyKind { DEVELOPING, TAPE_AUDIO }
+enum class BusyKind { DEVELOPING, TAPE_AUDIO, ANIMATION }
 
 data class BusyUi(val kind: BusyKind, val progress: Float? = null)
 
@@ -81,7 +87,22 @@ data class BoothUi(val shot: Int, val total: Int)
 data class IntervalUi(val nextInSeconds: Int?)
 
 /** Snackbar messages. A saved photo needs none: the gallery thumbnail pops in instead. */
-enum class CameraMessage { VIDEO_SAVED, CAPTURE_FAILED, RECORDING_FAILED, CAMERA_ERROR, DUAL_UNAVAILABLE }
+enum class CameraMessage {
+    VIDEO_SAVED,
+    CAPTURE_FAILED,
+    RECORDING_FAILED,
+    CAMERA_ERROR,
+    DUAL_UNAVAILABLE,
+
+    /** The single-use camera's roll is full and went to the lab. */
+    ROLL_SENT,
+
+    /** Prints came back from the lab; how many is in [CameraUiState.developed]. */
+    PRINTS_READY,
+
+    ANIMATION_SAVED,
+    ANIMATION_FAILED,
+}
 
 /** Session-defining settings; a change requires binding the camera again. */
 data class BindKey(val mode: CaptureMode, val front: Boolean, val aspect: AspectSetting?, val quality: VideoQuality?)
@@ -117,6 +138,16 @@ data class CameraUiState(
     val signal: Boolean = false,
     val booth: BoothUi? = null,
     val interval: IntervalUi? = null,
+    /** The single-use camera's film: shots on the roll and rolls at the lab. */
+    val roll: RollState = RollState(),
+    /** Prints that came back from the lab last time, for the message. */
+    val developed: Int = 0,
+    /** Double exposure: the first shot, laid over the viewfinder while the second is framed. */
+    val ghost: Bitmap? = null,
+    /** Stop-motion: the frames shot so far. */
+    val reel: ReelState = ReelState(),
+    /** The stop-motion reel is being made into a video. */
+    val animating: Boolean = false,
 ) {
     val isRecording: Boolean get() = recording is RecordingUi.Active
     val isFilming: Boolean get() = settings.mode.films
@@ -128,6 +159,13 @@ data class CameraUiState(
 
     /** Zoom as the user sees it: the camera's zoom times the digital zoom. */
     val effectiveZoom: Float get() = zoom.ratio * digitalZoom
+
+    /** What the shutter does: photo mode's shot kind, or a single shot in the other modes. */
+    val shot: ShotKind get() = if (settings.mode == CaptureMode.PHOTO) settings.shot else ShotKind.SINGLE
+
+    /** Photos go on the single-use camera's roll instead of straight into the gallery. */
+    val onRoll: Boolean
+        get() = settings.mode.takesPhotos && settings.photoLook == Look.DISPOSABLE && settings.disposableNextMorning
 
     /** Like 90s camcorders, the VHS look keeps zooming digitally past the lens. */
     val digitalZoomAvailable: Boolean get() = activeLook == Look.VHS
@@ -159,6 +197,12 @@ class CameraViewModel(
     val surfaceRequest: StateFlow<SurfaceRequest?> = engine.surfaceRequest
 
     private var countdownJob: Job? = null
+
+    /** Double exposure: the first shot, until the second one is taken. */
+    private var firstExposure: CapturedPhoto? = null
+
+    /** A double exposure or stop-motion shot is on its way; the next waits for it, to keep the order. */
+    private var exposing = false
     private var boothJob: Job? = null
     private var intervalJob: Job? = null
     private var focusCounter = 0
@@ -166,6 +210,7 @@ class CameraViewModel(
     private var stopping = false
     private var developing = 0
     private var tapeProgress: Float? = null
+    private var animationProgress: Float? = null
 
     init {
         sounds.load(MediaActionSound.SHUTTER_CLICK)
@@ -183,6 +228,8 @@ class CameraViewModel(
                 }
                 // Switching between photo and Pro keeps the session; only the manual controls change.
                 if ((before == CaptureMode.PRO) != (s.mode == CaptureMode.PRO)) applyManualControls()
+                // A half-made double exposure doesn't survive leaving it.
+                if (s.mode != CaptureMode.PHOTO || s.shot != ShotKind.DOUBLE) cancelDoubleExposure()
             }
         }
         viewModelScope.launch {
@@ -199,6 +246,8 @@ class CameraViewModel(
             }
         }
         viewModelScope.launch { container.media.latest.collect { m -> _state.update { it.copy(latest = m) } } }
+        viewModelScope.launch { container.rolls.state.collect { r -> _state.update { it.copy(roll = r) } } }
+        viewModelScope.launch { container.reel.state.collect { r -> _state.update { it.copy(reel = r) } } }
         viewModelScope.launch { container.media.loadAll() }
         viewModelScope.launch { container.hardwareShutter.collect { onShutter() } }
         viewModelScope.launch {
@@ -281,7 +330,12 @@ class CameraViewModel(
             return
         }
         when (s.settings.mode) {
-            CaptureMode.PHOTO -> if (s.settings.booth) captureBooth() else withTimer(s.settings.timer) { capturePhoto() }
+            CaptureMode.PHOTO -> when (s.settings.shot) {
+                ShotKind.SINGLE -> withTimer(s.settings.timer) { capturePhoto() }
+                ShotKind.BOOTH -> captureBooth()
+                ShotKind.DOUBLE -> withTimer(s.settings.timer) { captureDoubleExposure() }
+                ShotKind.STOP_MOTION -> withTimer(s.settings.timer) { captureFrame() }
+            }
             CaptureMode.PRO -> withTimer(s.settings.timer) { capturePhoto() }
             CaptureMode.VIDEO, CaptureMode.DUAL -> if (s.isRecording) {
                 stopRecording()
@@ -320,30 +374,189 @@ class CameraViewModel(
                 message(CameraMessage.CAPTURE_FAILED)
                 return@launch
             }
-            val nowMillis = System.currentTimeMillis()
-            val capturedAt = LocalDateTime.now()
-            val look = settings.photoLook
-            val spec = LookFactory.spec(settings, look, Random.nextFloat())
-            val osd = LookFactory.osd(settings, look, LookFactory.clockTime(settings, nowMillis), 0L)
-            val lookAspect = LookFactory.photoAspect(settings, look)
-            val mirror = photo.front && settings.mirrorSelfies
-            // Developing continues if the user leaves the camera meanwhile.
-            container.appScope.launch {
-                developing++
-                refreshBusy()
-                val result = runCatching {
+            develop(settings, mirror = photo.front && settings.mirrorSelfies) { photo }
+        }
+    }
+
+    /**
+     * Develops the picture [picture] makes with the photo look in [settings]: onto the
+     * single-use camera's roll, or straight into the gallery. It carries on if the user leaves
+     * the camera meanwhile.
+     */
+    private fun develop(settings: AppSettings, mirror: Boolean, picture: suspend () -> CapturedPhoto) {
+        val nowMillis = System.currentTimeMillis()
+        val capturedAt = LocalDateTime.now()
+        val look = settings.photoLook
+        val spec = LookFactory.spec(settings, look, Random.nextFloat())
+        val osd = LookFactory.osd(settings, look, LookFactory.clockTime(settings, nowMillis), 0L)
+        val lookAspect = LookFactory.photoAspect(settings, look)
+        val toRoll = look == Look.DISPOSABLE && settings.disposableNextMorning
+        container.appScope.launch {
+            developing++
+            refreshBusy()
+            val result = runCatching {
+                val photo = picture()
+                if (toRoll) {
+                    // The print waits on the roll; it shows up in the gallery once developed.
+                    val print = container.photoPipeline.print(photo, look, spec, osd, mirror, lookAspect, capturedAt)
+                    try {
+                        val original = Original(photo, mirror, nowMillis).takeIf { settings.keepOriginals }
+                        if (container.rolls.addShot(print, nowMillis, original) != null) message(CameraMessage.ROLL_SENT)
+                    } finally {
+                        print.delete()
+                    }
+                } else {
                     container.photoPipeline.develop(
                         photo, look, spec, osd, mirror, lookAspect, capturedAt, nowMillis,
                         keepOriginal = settings.keepOriginals,
                     )
                 }
-                developing--
-                refreshBusy()
-                result.exceptionOrNull()?.let {
-                    Log.e(TAG, "Developing failed", it)
+            }
+            developing--
+            refreshBusy()
+            result.exceptionOrNull()?.let {
+                Log.e(TAG, "Developing failed", it)
+                message(CameraMessage.CAPTURE_FAILED)
+            }
+        }
+    }
+
+    /**
+     * Double exposure: the first press keeps the shot and lays it over the viewfinder, the
+     * second press takes another one onto the same frame and develops the two together.
+     */
+    private fun captureDoubleExposure() {
+        if (exposing) return
+        exposing = true
+        val settings = _state.value.settings
+        playSound(MediaActionSound.SHUTTER_CLICK, settings)
+        _state.update { it.copy(shutterCount = it.shutterCount + 1) }
+        viewModelScope.launch {
+            val photo = try {
+                engine.takePhoto()
+            } catch (e: CancellationException) {
+                exposing = false
+                throw e
+            } catch (e: Exception) {
+                exposing = false
+                Log.e(TAG, "Capture failed", e)
+                message(CameraMessage.CAPTURE_FAILED)
+                return@launch
+            }
+            val first = firstExposure
+            if (first == null) {
+                val ghost = try {
+                    container.photoPipeline.ghost(photo, mirror = photo.front)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Could not lay the first exposure over the viewfinder", e)
                     message(CameraMessage.CAPTURE_FAILED)
+                    null
+                } finally {
+                    exposing = false
+                }
+                // Unless the user left double exposure meanwhile.
+                if (ghost != null && _state.value.shot == ShotKind.DOUBLE) {
+                    firstExposure = photo
+                    _state.update { it.copy(ghost = ghost) }
+                }
+                return@launch
+            }
+            exposing = false
+            cancelDoubleExposure()
+            // The two are one picture from here on, developed (and kept for restyling) as one.
+            develop(settings, mirror = false) {
+                container.photoPipeline.blend(
+                    first = first,
+                    second = photo,
+                    mirrorFirst = first.front && settings.mirrorSelfies,
+                    mirrorSecond = photo.front && settings.mirrorSelfies,
+                    longEdge = settings.photoLook.stillLongEdge,
+                )
+            }
+        }
+    }
+
+    /** Throws away the first shot of a double exposure. */
+    fun cancelDoubleExposure() {
+        firstExposure = null
+        if (_state.value.ghost != null) _state.update { it.copy(ghost = null) }
+    }
+
+    /**
+     * Stop-motion: adds a frame to the reel, developed with the look like a photo but smaller,
+     * and shows it over the viewfinder to line up the next one.
+     */
+    private fun captureFrame() {
+        if (exposing || _state.value.animating) return
+        exposing = true
+        val settings = _state.value.settings
+        playSound(MediaActionSound.SHUTTER_CLICK, settings)
+        _state.update { it.copy(shutterCount = it.shutterCount + 1) }
+        viewModelScope.launch {
+            try {
+                val photo = engine.takePhoto()
+                val onion = container.photoPipeline.ghost(photo, mirror = photo.front)
+                val nowMillis = System.currentTimeMillis()
+                val capturedAt = LocalDateTime.now()
+                val look = settings.photoLook
+                val spec = LookFactory.spec(settings, look, Random.nextFloat())
+                val osd = LookFactory.osd(settings, look, LookFactory.clockTime(settings, nowMillis), 0L)
+                val lookAspect = LookFactory.photoAspect(settings, look)
+                val mirror = photo.front && settings.mirrorSelfies
+                val longEdge = minOf(look.stillLongEdge, StopMotion.FRAME_LONG_EDGE)
+                // Handed over in the order they were shot; the reel keeps that order.
+                container.appScope.launch {
+                    try {
+                        container.reel.add(onion) {
+                            container.photoPipeline.print(photo, look, spec, osd, mirror, lookAspect, capturedAt, longEdge)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Developing the frame failed", e)
+                        message(CameraMessage.CAPTURE_FAILED)
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Capture failed", e)
+                message(CameraMessage.CAPTURE_FAILED)
+            } finally {
+                exposing = false
+            }
+        }
+    }
+
+    /** Takes the last stop-motion frame off the reel. */
+    fun undoFrame() {
+        container.appScope.launch { container.reel.undo() }
+    }
+
+    /** Throws the stop-motion reel away. */
+    fun discardReel() {
+        container.appScope.launch { container.reel.discard() }
+    }
+
+    /** Makes the stop-motion reel into a video in the gallery. */
+    fun finishReel() {
+        val s = _state.value
+        if (s.animating || s.reel.frames < MIN_ANIMATION_FRAMES) return
+        container.appScope.launch {
+            animationProgress = 0f
+            refreshBusy()
+            val result = runCatching {
+                container.reel.finish(s.settings.stopMotionRate, LocalDateTime.now(), System.currentTimeMillis()) { p ->
+                    animationProgress = p
+                    refreshBusy()
                 }
             }
+            animationProgress = null
+            refreshBusy()
+            result.exceptionOrNull()?.let { Log.e(TAG, "Making the animation failed", it) }
+            message(if (result.isSuccess) CameraMessage.ANIMATION_SAVED else CameraMessage.ANIMATION_FAILED)
         }
     }
 
@@ -558,12 +771,14 @@ class CameraViewModel(
 
     private fun refreshBusy() {
         val tape = tapeProgress
+        val animation = animationProgress
         val busy = when {
             tape != null -> BusyUi(BusyKind.TAPE_AUDIO, tape)
+            animation != null -> BusyUi(BusyKind.ANIMATION, animation)
             developing > 0 -> BusyUi(BusyKind.DEVELOPING)
             else -> null
         }
-        _state.update { it.copy(busy = busy) }
+        _state.update { it.copy(busy = busy, animating = animation != null) }
     }
 
     fun togglePause() {
@@ -670,6 +885,25 @@ class CameraViewModel(
 
     fun toggleTorch() = engine.setTorch(!_state.value.torchOn)
 
+    /** Takes the single-use camera's roll to the lab before it is full. */
+    fun sendRoll() {
+        container.appScope.launch { if (container.rolls.sendToLab() != null) message(CameraMessage.ROLL_SENT) }
+    }
+
+    /** Collects every roll from the lab now, ready or not. */
+    fun developNow() = developRolls(everything = true)
+
+    /** Brings back the rolls that are ready; called whenever the camera comes back on screen. */
+    fun developRolls(everything: Boolean = false) {
+        container.appScope.launch {
+            val developed = container.rolls.develop(everything = everything)
+            if (developed > 0) {
+                _state.update { it.copy(developed = developed) }
+                message(CameraMessage.PRINTS_READY)
+            }
+        }
+    }
+
     fun setFlash(flash: FlashSetting) {
         engine.setFlash(flash)
         updateSettings { it.copy(flash = flash) }
@@ -725,6 +959,9 @@ class CameraViewModel(
         const val BLUE_INTRO_MILLIS = 1_200L
         const val SNIPPET_MILLIS = 1_000L
         const val BOOTH_SHOTS = 4
+
+        /** An animation needs at least this many frames to move. */
+        const val MIN_ANIMATION_FRAMES = 2
 
         /** How far the digital zoom goes past the lens. */
         const val DIGITAL_ZOOM_MAX = 10f

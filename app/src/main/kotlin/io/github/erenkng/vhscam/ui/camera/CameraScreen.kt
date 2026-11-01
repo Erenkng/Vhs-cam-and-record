@@ -36,6 +36,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
@@ -81,11 +84,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.Morph
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -97,6 +103,7 @@ import io.github.erenkng.vhscam.core.look.AspectSetting
 import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CaptureMode
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.core.look.TapeSpeed
 import io.github.erenkng.vhscam.media.CapturedMedia
 import io.github.erenkng.vhscam.settings.AppSettings
@@ -135,6 +142,12 @@ class CameraActions(
     val onEffect: (CamcorderEffect) -> Unit = {},
     val onIso: (Int?) -> Unit = {},
     val onShutterSpeed: (Long?) -> Unit = {},
+    val onSendRoll: () -> Unit = {},
+    val onDevelopNow: () -> Unit = {},
+    val onCancelDoubleExposure: () -> Unit = {},
+    val onUndoFrame: () -> Unit = {},
+    val onDiscardReel: () -> Unit = {},
+    val onFinishReel: () -> Unit = {},
 )
 
 @Composable
@@ -177,8 +190,16 @@ fun CameraScreen(onOpenGallery: () -> Unit, onOpenSettings: () -> Unit) {
             onEffect = viewModel::setEffect,
             onIso = viewModel::setIso,
             onShutterSpeed = viewModel::setShutter,
+            onSendRoll = viewModel::sendRoll,
+            onDevelopNow = viewModel::developNow,
+            onCancelDoubleExposure = viewModel::cancelDoubleExposure,
+            onUndoFrame = viewModel::undoFrame,
+            onDiscardReel = viewModel::discardReel,
+            onFinishReel = viewModel::finishReel,
         )
     }
+    // Prints may have come back from the lab while the camera was away.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.developRolls() }
 
     CameraContent(state = state, actions = actions) { modifier ->
         surfaceRequest?.let { request ->
@@ -228,12 +249,20 @@ private fun CameraLayout(
     viewfinder: @Composable (Modifier) -> Unit,
 ) {
     var showEffects by rememberSaveable { mutableStateOf(false) }
+    var showLooks by rememberSaveable { mutableStateOf(false) }
+    var showRoll by rememberSaveable { mutableStateOf(false) }
     var showEffectRow by rememberSaveable { mutableStateOf(effectRowOpen) }
     var proSetting by rememberSaveable { mutableStateOf(initialProSetting) }
     val effectRowVisible = showEffectRow && state.activeLook == Look.VHS
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val messageText = state.message?.let { stringResource(it.label()) }
+    val messageText = state.message?.let { message ->
+        if (message == CameraMessage.PRINTS_READY) {
+            pluralStringResource(R.plurals.msg_prints_ready, state.developed, state.developed)
+        } else {
+            stringResource(message.label())
+        }
+    }
     LaunchedEffect(state.message) {
         val text = messageText ?: return@LaunchedEffect
         actions.onMessageShown()
@@ -272,6 +301,7 @@ private fun CameraLayout(
                 coveredTop = if (effectRowHeight > 0.dp) EffectRowGap + effectRowHeight else 0.dp,
                 coveredBottom = controlsHeight,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
+                onOpenRoll = { showRoll = true },
             )
         }
 
@@ -295,6 +325,7 @@ private fun CameraLayout(
             iconRotation = iconRotation,
             proSetting = proSetting,
             onProSetting = { setting -> proSetting = if (proSetting == setting) null else setting },
+            onOpenLooks = { showLooks = true },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -316,7 +347,13 @@ private fun CameraLayout(
             val busy = state.busy ?: lastBusy
             if (busy != null) {
                 BusyPill(
-                    label = stringResource(if (busy.kind == BusyKind.DEVELOPING) R.string.busy_developing else R.string.busy_tape),
+                    label = stringResource(
+                        when (busy.kind) {
+                            BusyKind.DEVELOPING -> R.string.busy_developing
+                            BusyKind.TAPE_AUDIO -> R.string.busy_tape
+                            BusyKind.ANIMATION -> R.string.busy_animation
+                        },
+                    ),
                     progress = busy.progress,
                 )
             }
@@ -331,6 +368,17 @@ private fun CameraLayout(
     if (showEffects) {
         EffectsSheet(state = state, actions = actions, onDismiss = { showEffects = false })
     }
+    if (showRoll) {
+        RollSheet(state = state, actions = actions, onDismiss = { showRoll = false })
+    }
+    if (showLooks) {
+        LookBrowserSheet(
+            options = if (state.isFilming) Look.videoLooks else Look.entries,
+            selected = state.activeLook,
+            onSelect = { look -> actions.onSettingsChange { if (state.isFilming) it.copy(videoLook = look) else it.copy(photoLook = look) } },
+            onDismiss = { showLooks = false },
+        )
+    }
 }
 
 private fun CameraMessage.label(): Int = when (this) {
@@ -339,6 +387,10 @@ private fun CameraMessage.label(): Int = when (this) {
     CameraMessage.RECORDING_FAILED -> R.string.msg_recording_failed
     CameraMessage.CAMERA_ERROR -> R.string.msg_camera_error
     CameraMessage.DUAL_UNAVAILABLE -> R.string.msg_dual_unavailable
+    CameraMessage.ROLL_SENT -> R.string.msg_roll_sent
+    CameraMessage.PRINTS_READY -> R.string.msg_prints_ready_short
+    CameraMessage.ANIMATION_SAVED -> R.string.msg_animation_saved
+    CameraMessage.ANIMATION_FAILED -> R.string.msg_animation_failed
 }
 
 /** A flat row of icons, spread across the top like the phone's own camera. */
@@ -413,7 +465,7 @@ private fun CameraTopBar(
             ),
             rotation = iconRotation,
             // The photobooth runs its own countdown.
-            enabled = filming || state.isPro || !settings.booth,
+            enabled = state.shot != ShotKind.BOOTH,
             onClick = {
                 val next = TimerSetting.entries[(settings.timer.ordinal + 1) % TimerSetting.entries.size]
                 actions.onSettingsChange { it.copy(timer = next) }
@@ -444,12 +496,10 @@ private fun CameraTopBar(
                 onCheckedChange = { on -> actions.onSettingsChange { it.copy(fade = on) } },
             )
         } else if (!state.isPro) {
-            ToolbarToggle(
-                icon = R.drawable.ic_view_agenda,
-                description = stringResource(if (settings.booth) R.string.booth_on else R.string.booth_off),
-                checked = settings.booth,
+            ShotMenu(
+                shot = settings.shot,
                 rotation = iconRotation,
-                onCheckedChange = { on -> actions.onSettingsChange { it.copy(booth = on) } },
+                onSelect = { shot -> actions.onSettingsChange { it.copy(shot = shot) } },
             )
         }
         if (look == Look.VHS) {
@@ -513,6 +563,79 @@ private fun ToolbarToggle(
     }
 }
 
+/**
+ * What the shutter does in photo mode, picked from a menu: one photo, a photobooth strip, a
+ * double exposure or stop-motion. The button is filled while it does something other than one photo.
+ */
+@Composable
+private fun ShotMenu(shot: ShotKind, rotation: Float, onSelect: (ShotKind) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val active = shot != ShotKind.SINGLE
+    Box {
+        FilledIconButton(
+            onClick = { open = true },
+            shapes = IconButtonDefaults.shapes(),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            ),
+        ) {
+            Icon(
+                painterResource(shot.icon()),
+                contentDescription = stringResource(R.string.shot_menu, stringResource(shot.label())),
+                modifier = Modifier.rotate(rotation),
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            ShotKind.entries.forEach { kind ->
+                DropdownMenuItem(
+                    text = {
+                        Column(Modifier.padding(vertical = 4.dp)) {
+                            Text(stringResource(kind.label()), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                stringResource(kind.description()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                    onClick = {
+                        open = false
+                        onSelect(kind)
+                    },
+                    leadingIcon = { Icon(painterResource(kind.icon()), contentDescription = null) },
+                    trailingIcon = if (kind == shot) {
+                        { Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                    } else {
+                        null
+                    },
+                )
+            }
+        }
+    }
+}
+
+fun ShotKind.label(): Int = when (this) {
+    ShotKind.SINGLE -> R.string.shot_single
+    ShotKind.BOOTH -> R.string.shot_booth
+    ShotKind.DOUBLE -> R.string.shot_double
+    ShotKind.STOP_MOTION -> R.string.shot_stop_motion
+}
+
+private fun ShotKind.description(): Int = when (this) {
+    ShotKind.SINGLE -> R.string.shot_single_desc
+    ShotKind.BOOTH -> R.string.shot_booth_desc
+    ShotKind.DOUBLE -> R.string.shot_double_desc
+    ShotKind.STOP_MOTION -> R.string.shot_stop_motion_desc
+}
+
+private fun ShotKind.icon(): Int = when (this) {
+    ShotKind.SINGLE -> R.drawable.ic_photo_camera
+    ShotKind.BOOTH -> R.drawable.ic_view_agenda
+    ShotKind.DOUBLE -> R.drawable.ic_join
+    ShotKind.STOP_MOTION -> R.drawable.ic_animation
+}
+
 /** The camcorder's digital effect button, as a row of chips. */
 @Composable
 private fun EffectChips(selected: CamcorderEffect, onSelect: (CamcorderEffect) -> Unit, modifier: Modifier = Modifier) {
@@ -542,6 +665,8 @@ private fun EffectChips(selected: CamcorderEffect, onSelect: (CamcorderEffect) -
     }
 }
 
+private enum class BottomPanel { LOOKS, PRO, REEL }
+
 @Composable
 private fun BottomControls(
     state: CameraUiState,
@@ -549,6 +674,7 @@ private fun BottomControls(
     iconRotation: Float,
     proSetting: ProSetting?,
     onProSetting: (ProSetting) -> Unit,
+    onOpenLooks: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val motion = MaterialTheme.motionScheme
@@ -557,20 +683,34 @@ private fun BottomControls(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Looks to pick from, or Pro mode's manual controls.
+        // Looks to pick from, Pro mode's manual controls, or the stop-motion reel. While an
+        // animation is being shot its look stays put, so every frame matches.
+        val panel = when {
+            state.isPro -> BottomPanel.PRO
+            state.shot == ShotKind.STOP_MOTION && state.reel.frames > 0 -> BottomPanel.REEL
+            else -> BottomPanel.LOOKS
+        }
         AnimatedContent(
-            targetState = state.isPro,
+            targetState = panel,
             transitionSpec = {
                 (fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec()))
                     .using(SizeTransform(clip = false))
             },
-            label = "lookOrPro",
-        ) { pro ->
-            if (pro) {
-                ProPanel(state, actions, open = proSetting, onOpen = onProSetting)
-            } else {
+            label = "bottomPanel",
+        ) { shown ->
+            when (shown) {
+                BottomPanel.PRO -> ProPanel(state, actions, open = proSetting, onOpen = onProSetting)
+                BottomPanel.REEL -> StopMotionBar(
+                    frames = state.reel.frames,
+                    rate = state.settings.stopMotionRate,
+                    busy = state.animating,
+                    onUndo = actions.onUndoFrame,
+                    onRate = { rate -> actions.onSettingsChange { it.copy(stopMotionRate = rate) } },
+                    onDiscard = actions.onDiscardReel,
+                    onFinish = actions.onFinishReel,
+                )
                 // Photos and videos offer different looks, so each gets its own dial.
-                key(state.isFilming) {
+                BottomPanel.LOOKS -> key(state.isFilming) {
                     ThumbnailDial(
                         options = if (state.isFilming) Look.videoLooks else Look.entries,
                         selected = state.activeLook,
@@ -580,6 +720,8 @@ private fun BottomControls(
                         image = { it.sample() },
                         label = { stringResource(it.label()) },
                         enabled = !state.isRecording && state.booth == null,
+                        onSelectedClick = onOpenLooks,
+                        selectedClickLabel = stringResource(R.string.looks_open),
                     )
                 }
             }
@@ -618,6 +760,7 @@ private fun ShutterRow(state: CameraUiState, actions: CameraActions, iconRotatio
             onClick = actions.onShutter,
             contentDescription = stringResource(
                 when {
+                    state.shot == ShotKind.STOP_MOTION -> R.string.shutter_frame
                     !filming -> R.string.shutter_photo
                     state.isRecording -> R.string.shutter_stop
                     else -> R.string.shutter_record
@@ -734,8 +877,15 @@ fun CaptureMode.label(): Int = when (this) {
 /** The beach from the onboarding, developed with the look: what the look does, at a glance. */
 fun Look.sample(): Int = when (this) {
     Look.VHS -> R.drawable.onboarding_vhs
+    Look.SUPER8 -> R.drawable.onboarding_super8
     Look.CCD -> R.drawable.onboarding_ccd
     Look.FILM -> R.drawable.onboarding_film
+    Look.GOLD -> R.drawable.onboarding_gold
+    Look.PORTRAIT -> R.drawable.onboarding_portrait
+    Look.CINE -> R.drawable.onboarding_cine
+    Look.RED_GRAIN -> R.drawable.onboarding_red_grain
+    Look.REDSCALE -> R.drawable.onboarding_redscale
+    Look.DISPOSABLE -> R.drawable.onboarding_disposable
     Look.POLAROID -> R.drawable.onboarding_instant
     Look.GAMEBOY -> R.drawable.onboarding_gameboy
     Look.WEBCAM -> R.drawable.onboarding_webcam
@@ -744,8 +894,15 @@ fun Look.sample(): Int = when (this) {
 
 fun Look.label(): Int = when (this) {
     Look.VHS -> R.string.look_vhs
+    Look.SUPER8 -> R.string.look_super8
     Look.CCD -> R.string.look_ccd
     Look.FILM -> R.string.look_film
+    Look.GOLD -> R.string.look_gold
+    Look.PORTRAIT -> R.string.look_portrait
+    Look.CINE -> R.string.look_cine
+    Look.RED_GRAIN -> R.string.look_red_grain
+    Look.REDSCALE -> R.string.look_redscale
+    Look.DISPOSABLE -> R.string.look_disposable
     Look.POLAROID -> R.string.look_polaroid
     Look.GAMEBOY -> R.string.look_gameboy
     Look.WEBCAM -> R.string.look_webcam

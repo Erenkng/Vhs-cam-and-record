@@ -16,6 +16,11 @@ class VhsCamApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         container.appScope.launch { container.videoPipeline.recoverLeftovers() }
+        container.appScope.launch {
+            container.rolls.load()
+            container.rolls.develop()
+        }
+        container.appScope.launch { container.reel.load() }
     }
 
     /** Coil with video frame decoding, for tape thumbnails. coil-gif adds animated GIFs by itself. */

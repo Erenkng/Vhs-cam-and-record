@@ -13,8 +13,8 @@ import kotlin.math.roundToInt
  *
  * - input: camera/photo -> upright working frame (+ burned-in OSD, camcorder effects)
  * - VHS: [trail] -> chroma (quarter width) -> tape playback
- * - CCD, 8-bit, webcam, CCTV: single pass
- * - film / instant film: glow (quarter size) -> look pass
+ * - CCD, 8-bit, webcam, CCTV, Super 8, disposable: single pass
+ * - film / instant film / film stocks: glow (quarter size) -> look pass
  * - present: working frame -> output surface (+ crisp OSD, vignette, scanlines, peaking,
  *   blue screen, fader)
  *
@@ -34,6 +34,9 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
     private val webcam = shaders.program("webcam.frag")
     private val cctv = shaders.program("cctv.frag")
     private val trail = shaders.program("trail.frag")
+    private val super8 = shaders.program("super8.frag")
+    private val disposable = shaders.program("disposable.frag")
+    private val filmStock = shaders.program("filmstock.frag")
     private val present = shaders.program("present.frag")
 
     private val working = TargetSlot()
@@ -227,6 +230,77 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
                 cctv.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
                 draw()
             }
+            is LookSpec.Super8 -> {
+                val p = spec.params
+                out.bind()
+                super8.use()
+                super8.setMatrix("uUvTransform", identity)
+                super8.set("uSrcSize", w.toFloat(), h.toFloat())
+                super8.set("uScale", h / 540f)
+                super8.setUnsigned("uFrame", frame)
+                super8.set("uSaturation", p.saturation)
+                super8.set("uContrast", p.contrast)
+                super8.set("uTint", p.tintR, p.tintG, p.tintB)
+                super8.set("uFade", p.fade)
+                super8.set("uGrain", p.grain)
+                super8.set("uGrainSize", p.grainSize)
+                super8.set("uFlicker", p.flicker)
+                super8.set("uWeave", p.weave)
+                super8.set("uDust", p.dust)
+                super8.set("uScratches", p.scratches)
+                super8.set("uSoftness", p.softness)
+                super8.set("uVignette", p.vignette)
+                super8.set("uGate", p.gate)
+                super8.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                draw()
+            }
+            is LookSpec.FilmStock -> {
+                val p = spec.params
+                val g = renderGlow(a, w, h, threshold = 0.7f, radius = minOf(w, h) * 0.025f)
+                out.bind()
+                filmStock.use()
+                filmStock.setMatrix("uUvTransform", identity)
+                filmStock.set("uSrcSize", w.toFloat(), h.toFloat())
+                filmStock.set("uScale", minOf(w, h) / 1600f)
+                filmStock.setUnsigned("uFrame", frame)
+                filmStock.set("uExposure", p.exposure)
+                filmStock.set("uContrast", p.contrast)
+                filmStock.set("uFade", p.fade)
+                filmStock.setMatrix3RowMajor("uMatrix", p.matrix)
+                filmStock.set("uSaturation", p.saturation)
+                filmStock.set("uShadowTint", p.shadowTint[0], p.shadowTint[1], p.shadowTint[2])
+                filmStock.set("uHighlightTint", p.highlightTint[0], p.highlightTint[1], p.highlightTint[2])
+                filmStock.set("uHalation", p.halation)
+                filmStock.set("uHalationTint", p.halationTint[0], p.halationTint[1], p.halationTint[2])
+                filmStock.set("uGrain", p.grain)
+                filmStock.set("uGrainSize", p.grainSize)
+                filmStock.set("uRedGrain", p.redGrain)
+                filmStock.set("uVignette", p.vignette)
+                filmStock.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                filmStock.setTexture("uGlow", 1, GLES30.GL_TEXTURE_2D, g.texture)
+                draw()
+            }
+            is LookSpec.Disposable -> {
+                val p = spec.params
+                out.bind()
+                disposable.use()
+                disposable.setMatrix("uUvTransform", identity)
+                disposable.set("uSrcSize", w.toFloat(), h.toFloat())
+                disposable.set("uScale", minOf(w, h) / 1200f)
+                disposable.setUnsigned("uFrame", frame)
+                disposable.set("uFlash", p.flash)
+                disposable.set("uSaturation", p.saturation)
+                disposable.set("uContrast", p.contrast)
+                disposable.set("uShadowTint", p.shadowTintR, p.shadowTintG, p.shadowTintB)
+                disposable.set("uHighlightTint", p.highlightTintR, p.highlightTintG, p.highlightTintB)
+                disposable.set("uGrain", p.grain)
+                disposable.set("uGrainSize", p.grainSize)
+                disposable.set("uSoftness", p.softness)
+                disposable.set("uFringe", p.fringe)
+                disposable.set("uVignette", p.vignette)
+                disposable.setTexture("uSrc", 0, GLES30.GL_TEXTURE_2D, a.texture)
+                draw()
+            }
             is LookSpec.Ccd -> {
                 val p = spec.params
                 out.bind()
@@ -358,7 +432,7 @@ class LookRenderer(shaders: ShaderLibrary, oesInput: Boolean) {
     }
 
     fun release() {
-        listOf(input, vhsChroma, vhsTape, ccd, glow, film, polaroid, gameBoy, webcam, cctv, trail, present)
+        listOf(input, vhsChroma, vhsTape, ccd, glow, film, polaroid, gameBoy, webcam, cctv, trail, super8, disposable, filmStock, present)
             .forEach { it.release() }
         (listOf(working, chroma, glowTarget, result) + trailTargets).forEach { it.release() }
         GLES30.glDeleteBuffers(1, intArrayOf(vertexBuffer), 0)

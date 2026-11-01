@@ -72,6 +72,14 @@ class GlProgram(vertexSource: String, fragmentSource: String, private val name: 
         if (l >= 0) GLES30.glUniformMatrix4fv(l, 1, false, matrix, 0)
     }
 
+    /** A 3 x 3 matrix given row-major, the way it reads in Kotlin. */
+    fun setMatrix3RowMajor(uniform: String, rows: List<Float>) {
+        val l = location(uniform)
+        if (l < 0) return
+        val columns = FloatArray(9) { i -> rows[(i % 3) * 3 + i / 3] }
+        GLES30.glUniformMatrix3fv(l, 1, false, columns, 0)
+    }
+
     fun setTexture(uniform: String, unit: Int, target: Int, texture: Int) {
         val l = location(uniform)
         if (l < 0) return

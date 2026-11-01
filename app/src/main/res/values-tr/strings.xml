@@ -142,6 +142,13 @@
     <string name="look_gameboy">8-bit</string>
     <string name="look_webcam">Webcam</string>
     <string name="look_cctv">CCTV</string>
+    <string name="look_super8">Super 8</string>
+    <string name="look_disposable">Kullan-at</string>
+    <string name="look_gold">Altın</string>
+    <string name="look_portrait">Portre</string>
+    <string name="look_cine">Sinema 800</string>
+    <string name="look_red_grain">Kırmızı Gren</string>
+    <string name="look_redscale">Redscale</string>
     <string name="effects_button">Kamera efektleri</string>
     <string name="effect_none">Kapalı</string>
     <string name="effect_night">Gece görüşü</string>
@@ -167,8 +174,6 @@
     <string name="interval_1m">1 dk</string>
     <string name="interval_badge">INT REC</string>
     <string name="interval_next">sonraki %1$d sn</string>
-    <string name="booth_on">Fotokabin açık</string>
-    <string name="booth_off">Fotokabin kapalı</string>
     <string name="booth_progress">%1$d / %2$d. kare</string>
     <string name="no_signal">NO SIGNAL</string>
     <string name="dzoom">D.ZOOM</string>
@@ -201,4 +206,93 @@
     <string name="onboarding_3_body">Fader, gece görüşü, sepya ve mozaik, dijital zoom, aralıklı kayıt, çift çekim ve VCR mavi ekranı.</string>
     <string name="onboarding_4_title">Paylaşmaya hazır</string>
     <string name="onboarding_4_body">Fotokabin şeritleri, retro GIF\'ler ve fotoğrafın stilini sonradan değiştirme. Hepsi Kasetler\'de.</string>
+    <string name="looks_title">Stiller</string>
+    <plurals name="looks_count">
+        <item quantity="one">%d stil</item>
+        <item quantity="other">%d stil</item>
+    </plurals>
+    <string name="looks_open">Tüm stilleri göster</string>
+    <string name="look_records_video">Video çeker</string>
+    <string name="category_home_video">Ev videosu</string>
+    <string name="category_film">Film</string>
+    <string name="category_digital">Dijital</string>
+    <string name="look_desc_vhs">Kamera kaseti: renk taşması, tracking çizgileri ve tarih.</string>
+    <string name="look_desc_super8">Ev filmi: sıcak renkler, titreşim ve film deliği.</string>
+    <string name="look_desc_film">Kompakt makine filmi; ışık sızıntısı ve turuncu tarih.</string>
+    <string name="look_desc_gold">Sıcak, altın tonlu film; canlı kırmızılar ve kırmızı gren.</string>
+    <string name="look_desc_portrait">Yumuşak, pastel renkler; tene çok yakışır.</string>
+    <string name="look_desc_cine">Sinema filmi: camgöbeği gölgeler, ışıkların etrafında kırmızı parlama.</string>
+    <string name="look_desc_red_grain">Soluk ve sıcak; yoğun kırmızı gren.</string>
+    <string name="look_desc_redscale">Ters takılmış film: kırmızı, turuncu ve sarı.</string>
+    <string name="look_desc_disposable">Kullan-at makine: flaş, plastik lens, 27 pozluk rulo.</string>
+    <string name="look_desc_polaroid">Anında film: beyaz çerçevede yumuşak, soluk renkler.</string>
+    <string name="look_desc_ccd">2000\'lerin dijital makinesi: canlı renk, JPEG blokları.</string>
+    <string name="look_desc_gameboy">Dört yeşil tonlu 8-bit el konsolu kamerası.</string>
+    <string name="look_desc_webcam">2005 webcam\'i: soğuk, karıncalı ve bloklu.</string>
+    <string name="look_desc_cctv">Güvenlik kamerası: siyah-beyaz, saat damgalı.</string>
+    <string name="roll_title">Kullan-at rulo</string>
+    <plurals name="roll_left">
+        <item quantity="one">%d poz kaldı</item>
+        <item quantity="other">%d poz kaldı</item>
+    </plurals>
+    <string name="roll_badge">poz</string>
+    <string name="roll_send">Banyoya gönder</string>
+    <string name="roll_at_lab">Banyoda</string>
+    <plurals name="roll_prints">
+        <item quantity="one">%d fotoğraf</item>
+        <item quantity="other">%d fotoğraf</item>
+    </plurals>
+    <string name="roll_develop_now">Beklemeden çıkar</string>
+    <string name="roll_next_morning">Ertesi sabah banyo</string>
+    <string name="roll_next_morning_help">Kapalıyken kullan-at fotoğrafları hemen galeriye düşer.</string>
+    <string name="roll_ready_now">Hazır</string>
+    <string name="roll_ready_today">Hazır: bugün %1$s</string>
+    <string name="roll_ready_tomorrow">Hazır: yarın %1$s</string>
+    <string name="roll_ready_on">Hazır: %1$s</string>
+    <string name="msg_roll_sent">Rulo bitti, banyoya gönderildi</string>
+    <string name="msg_prints_ready_short">Fotoğraflar banyodan çıktı</string>
+    <plurals name="msg_prints_ready">
+        <item quantity="one">%d fotoğraf banyodan çıktı</item>
+        <item quantity="other">%d fotoğraf banyodan çıktı</item>
+    </plurals>
+    <plurals name="gallery_at_lab">
+        <item quantity="one">Banyoda %d fotoğraf</item>
+        <item quantity="other">Banyoda %d fotoğraf</item>
+    </plurals>
+    <plurals name="gallery_in_camera">
+        <item quantity="one">Makinedeki rulo: %d poz</item>
+        <item quantity="other">Makinedeki rulo: %d poz</item>
+    </plurals>
+
+    <string name="shot_menu">Çekim modu: %1$s</string>
+    <string name="shot_single">Tek fotoğraf</string>
+    <string name="shot_single_desc">Her basışta bir fotoğraf</string>
+    <string name="shot_booth">Fotokabin</string>
+    <string name="shot_booth_desc">Bir şeritte dört kare</string>
+    <string name="shot_double">Çift pozlama</string>
+    <string name="shot_double_desc">İki çekim tek karede</string>
+    <string name="shot_stop_motion">Stop-motion</string>
+    <string name="shot_stop_motion_desc">Kare kare bir video</string>
+    <string name="shutter_frame">Kare ekle</string>
+    <string name="exposure_step">Poz %1$d/2</string>
+    <string name="exposure_cancel">İlk pozu sil</string>
+    <plurals name="reel_frames">
+        <item quantity="one">%d kare</item>
+        <item quantity="other">%d kare</item>
+    </plurals>
+    <string name="reel_length">%1$s sn</string>
+    <string name="reel_rate">%1$d fps</string>
+    <string name="reel_rate_title">Saniyedeki kare</string>
+    <string name="reel_undo">Son kareyi geri al</string>
+    <string name="reel_more">Diğer seçenekler</string>
+    <string name="reel_discard">Tüm kareleri sil</string>
+    <string name="reel_discard_title">Animasyon silinsin mi?</string>
+    <plurals name="reel_discard_body">
+        <item quantity="one">%d kare silinecek.</item>
+        <item quantity="other">%d karenin hepsi silinecek.</item>
+    </plurals>
+    <string name="reel_save">Kaydet</string>
+    <string name="busy_animation">Animasyon hazırlanıyor…</string>
+    <string name="msg_animation_saved">Animasyon kaydedildi</string>
+    <string name="msg_animation_failed">Animasyon kaydedilemedi</string>
 </resources>

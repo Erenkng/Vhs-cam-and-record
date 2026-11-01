@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A film canister with a strip of film pulled out. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5,5h4a2,2 0,0 1,2 2v10a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2v-10a2,2 0,0 1,2 -2z M6,3h2v2h-2z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M11,8h10v8h-10z M12.5,9h1.5v1.5h-1.5z M15.5,9h1.5v1.5h-1.5z M18.5,9h1.5v1.5h-1.5z M12.5,13.5h1.5v1.5h-1.5z M15.5,13.5h1.5v1.5h-1.5z M18.5,13.5h1.5v1.5h-1.5z" />
+</vector>

@@ -37,7 +37,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.ui.camera.LookBrowserSheet
 import io.github.erenkng.vhscam.ui.camera.label
 import io.github.erenkng.vhscam.ui.camera.sample
 import io.github.erenkng.vhscam.ui.components.AppSlider
@@ -155,6 +159,10 @@ private fun Preview(preview: Bitmap, rendering: Boolean) {
 
 @Composable
 private fun Controls(state: RestyleUiState, onLook: (Look) -> Unit, onIntensity: (Float) -> Unit, onSave: () -> Unit) {
+    var showLooks by rememberSaveable { mutableStateOf(false) }
+    if (showLooks) {
+        LookBrowserSheet(options = Look.entries, selected = state.look, onSelect = onLook, onDismiss = { showLooks = false })
+    }
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -167,6 +175,8 @@ private fun Controls(state: RestyleUiState, onLook: (Look) -> Unit, onIntensity:
             image = { it.sample() },
             label = { stringResource(it.label()) },
             enabled = !state.saving,
+            onSelectedClick = { showLooks = true },
+            selectedClickLabel = stringResource(R.string.looks_open),
         )
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),

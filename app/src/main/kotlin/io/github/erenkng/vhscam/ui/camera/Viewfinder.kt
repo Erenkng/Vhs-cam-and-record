@@ -1,6 +1,7 @@
 package io.github.erenkng.vhscam.ui.camera
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
@@ -73,6 +74,7 @@ import io.github.erenkng.vhscam.camera.DeviceOrientation
 import io.github.erenkng.vhscam.camera.LookFactory
 import io.github.erenkng.vhscam.camera.ZoomInfo
 import io.github.erenkng.vhscam.core.look.AspectSetting
+import io.github.erenkng.vhscam.core.look.ShotKind
 import io.github.erenkng.vhscam.ui.components.AppSlider
 import io.github.erenkng.vhscam.ui.components.FocusIndicator
 import io.github.erenkng.vhscam.ui.components.GridOverlay
@@ -102,6 +104,7 @@ fun ViewfinderPanel(
     modifier: Modifier = Modifier,
     coveredTop: Dp = 0.dp,
     coveredBottom: Dp = 0.dp,
+    onOpenRoll: () -> Unit = {},
 ) {
     val settings = state.settings
     val motion = MaterialTheme.motionScheme
@@ -160,6 +163,23 @@ fun ViewfinderPanel(
                 },
         ) {
             viewfinder(Modifier.fillMaxSize())
+
+            // The shot to line the next one up with: a double exposure's first, stop-motion's last.
+            val ghost = when (state.shot) {
+                ShotKind.DOUBLE -> state.ghost
+                ShotKind.STOP_MOTION -> state.reel.onion
+                else -> null
+            }
+            Crossfade(targetState = ghost, modifier = Modifier.matchParentSize(), animationSpec = tween(220), label = "ghost") { bitmap ->
+                if (bitmap != null) {
+                    GhostOverlay(
+                        bitmap = bitmap,
+                        rotation = iconRotation,
+                        alpha = if (state.shot == ShotKind.DOUBLE) DOUBLE_EXPOSURE_ALPHA else ONION_SKIN_ALPHA,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
 
             AnimatedVisibility(
                 visible = !state.signal,
@@ -241,6 +261,27 @@ fun ViewfinderPanel(
                         var lastBooth by remember { mutableStateOf(state.booth) }
                         SideEffect { if (state.booth != null) lastBooth = state.booth }
                         (state.booth ?: lastBooth)?.let { BoothProgress(it) }
+                    }
+                    AnimatedVisibility(
+                        visible = state.onRoll && state.booth == null,
+                        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    ) {
+                        RollBadge(left = state.roll.left, onClick = onOpenRoll)
+                    }
+                    AnimatedVisibility(
+                        visible = state.shot == ShotKind.DOUBLE,
+                        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    ) {
+                        ExposureBadge(second = state.ghost != null, onCancel = actions.onCancelDoubleExposure)
+                    }
+                    AnimatedVisibility(
+                        visible = state.shot == ShotKind.STOP_MOTION,
+                        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    ) {
+                        ReelBadge(frames = state.reel.frames)
                     }
                 }
 
@@ -386,6 +427,12 @@ private fun ZoomPresets(zoom: ZoomInfo, ratio: Float, rotation: Float, onZoom: (
         }
     }
 }
+
+/** How strongly the first shot of a double exposure shows over the second. */
+private const val DOUBLE_EXPOSURE_ALPHA = 0.5f
+
+/** Stop-motion's onion skin: the last frame, just enough to line the next one up. */
+private const val ONION_SKIN_ALPHA = 0.35f
 
 /** Zoom buttons are round and sit concentric with the pill's round ends. */
 private val ZoomButtonSize = 44.dp
