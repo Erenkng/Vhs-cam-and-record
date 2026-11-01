@@ -16,8 +16,11 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +37,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
@@ -47,12 +51,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -72,9 +74,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -86,10 +85,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.graphics.shapes.Morph
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -958,13 +954,13 @@ private fun ShutterRow(state: CameraUiState, actions: CameraActions, iconRotatio
     }
 }
 
-/** Latest capture as a cookie-shaped thumbnail that pops in, morphing from a circle, after each new shot. */
+/** The last shot in a ringed circle; a new one pops in, and it gives a little when pressed. */
 @Composable
 private fun GalleryButton(latest: CapturedMedia?, rotation: Float, onClick: () -> Unit) {
     val description = stringResource(R.string.open_gallery)
-    val morph = remember { Morph(MaterialShapes.Circle, MaterialShapes.Cookie4Sided) }
+    val motion = MaterialTheme.motionScheme
     val reveal = remember { Animatable(1f) }
-    val revealSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    val revealSpec = motion.slowSpatialSpec<Float>()
     var shownUri by remember { mutableStateOf(latest?.uri) }
     LaunchedEffect(latest?.uri) {
         val uri = latest?.uri
@@ -974,19 +970,23 @@ private fun GalleryButton(latest: CapturedMedia?, rotation: Float, onClick: () -
             reveal.animateTo(1f, revealSpec)
         }
     }
-    val progress = reveal.value
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val press by animateFloatAsState(if (pressed) 0.88f else 1f, motion.fastSpatialSpec(), label = "galleryPress")
     Box(
         modifier = Modifier
             .size(56.dp)
             .graphicsLayer {
-                val scale = 0.6f + 0.4f * progress
+                val scale = (0.6f + 0.4f * reveal.value) * press
                 scaleX = scale
                 scaleY = scale
                 rotationZ = rotation
             }
-            .clip(MorphShape(morph, progress.coerceIn(0f, 1f)))
+            .border(2.dp, Color.White.copy(alpha = 0.9f), CircleShape)
+            .padding(4.dp)
+            .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .clickable(onClickLabel = description, onClick = onClick),
+            .clickable(interactionSource = interaction, indication = null, onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (latest != null) {
@@ -1003,15 +1003,6 @@ private fun GalleryButton(latest: CapturedMedia?, rotation: Float, onClick: () -
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-/** [morph] at [progress], scaled to the bounds. */
-private class MorphShape(private val morph: Morph, private val progress: Float) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val path = morph.toPath(progress)
-        path.transform(Matrix().apply { scale(size.width, size.height) })
-        return Outline.Generic(path)
     }
 }
 

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import io.github.erenkng.vhscam.R
 import io.github.erenkng.vhscam.ui.theme.CameraColors
 import io.github.erenkng.vhscam.ui.theme.Vt323
+import java.util.Locale
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -120,6 +121,37 @@ fun CamcorderZoomBar(zoom: Float, min: Float, lensMax: Float, max: Float, modifi
         }
         if (zoom > lensMax + 0.01f) {
             Text(stringResource(R.string.dzoom), style = OsdText.copy(fontSize = 20.sp))
+        }
+    }
+}
+
+/**
+ * Shown while the digital zoom is on, in every look: how far past the lens the picture is
+ * magnified, and a tap to go back to 1x. Only on screen; the photos and tapes never show it.
+ */
+@Composable
+fun DigitalZoomChip(zoom: Float, onReset: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onReset,
+        modifier = modifier,
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.55f),
+        contentColor = Color.White,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.dzoom) + " " + String.format(Locale.ROOT, "%.1f×", zoom),
+                style = OsdText.copy(fontSize = 20.sp),
+            )
+            Icon(
+                painterResource(R.drawable.ic_close),
+                contentDescription = stringResource(R.string.zoom_reset),
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }

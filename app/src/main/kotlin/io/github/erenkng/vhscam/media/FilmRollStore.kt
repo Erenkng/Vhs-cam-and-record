@@ -80,6 +80,7 @@ class FilmRollStore(
                 properties.setProperty(ROTATION, original.photo.rotationDegrees.toString())
                 properties.setProperty(FRONT, original.photo.front.toString())
                 properties.setProperty(MIRROR, original.mirror.toString())
+                properties.setProperty(ZOOM, original.photo.zoom.toString())
             }
             File(camera, frameName(frame, META)).outputStream().use { properties.store(it, null) }
         }
@@ -150,6 +151,7 @@ class FilmRollStore(
                 bitmap = null,
                 rotationDegrees = properties.getProperty(ROTATION)?.toIntOrNull() ?: 0,
                 front = properties.getProperty(FRONT) == "true",
+                zoom = properties.getProperty(ZOOM)?.toFloatOrNull() ?: 1f,
             )
             originals.save(ContentUris.parseId(uri), photo, properties.getProperty(MIRROR) == "true", taken)
         }
@@ -189,6 +191,7 @@ class FilmRollStore(
         const val ROTATION = "rotation"
         const val FRONT = "front"
         const val MIRROR = "mirror"
+        const val ZOOM = "zoom"
         const val READY = "ready"
         val FRAME = Regex("frame_(\\d+)\\.jpg")
     }

@@ -5,14 +5,22 @@
 <script>
 // Runs the app's TV export shaders (assets/export/tv.*) on an image, the way Media3 does:
 // OpenGL ES 2 (WebGL 1), a full-frame quad, the frame as a 2D texture.
-window.renderTv = async ({ imageUrl, width = 1080, height = 1920, rotation = 0, time = 2.0 }) => {
+window.renderTv = async ({ imageUrl, width = 1080, height = 1920, rotation = 0, time = 2.0, crop = null }) => {
   const [vert, frag] = await Promise.all([
     fetch('/app/src/main/assets/export/tv.vert').then((r) => r.text()),
     fetch('/app/src/main/assets/export/tv.frag').then((r) => r.text()),
   ]);
-  const image = new Image();
-  image.src = imageUrl;
-  await image.decode();
+  const loaded = new Image();
+  loaded.src = imageUrl;
+  await loaded.decode();
+  // [crop] (fractions x, y, w, h) stands in for a clip of another shape.
+  let image = loaded;
+  if (crop) {
+    image = document.createElement('canvas');
+    image.width = Math.round(loaded.width * crop[2]);
+    image.height = Math.round(loaded.height * crop[3]);
+    image.getContext('2d').drawImage(loaded, -loaded.width * crop[0], -loaded.height * crop[1]);
+  }
   const canvas = document.getElementById('out');
   canvas.width = width;
   canvas.height = height;

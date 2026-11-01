@@ -211,8 +211,11 @@ data class CameraUiState(
     val onRoll: Boolean
         get() = settings.mode.takesPhotos && settings.photoLook == Look.DISPOSABLE && settings.disposableNextMorning
 
-    /** Like 90s camcorders, the VHS look keeps zooming digitally past the lens. */
-    val digitalZoomAvailable: Boolean get() = activeLook == Look.VHS
+    /**
+     * Like 90s camcorders, every look keeps zooming digitally past the lens (blockier in the
+     * VHS look), for photos and video alike; not on the ultra-wide, which zooms out instead.
+     */
+    val digitalZoomAvailable: Boolean get() = !onWide
 
     val bindKey: BindKey
         get() = BindKey(
@@ -444,13 +447,16 @@ class CameraViewModel(
         }
     }
 
+    /** A photo from the camera, framed with the digital zoom on at the time. */
+    private suspend fun takePhoto(): CapturedPhoto = engine.takePhoto().zoomed(_state.value.digitalZoom)
+
     private fun capturePhoto() {
         val settings = _state.value.settings
         playSound(MediaActionSound.SHUTTER_CLICK, settings)
         _state.update { it.copy(shutterCount = it.shutterCount + 1) }
         viewModelScope.launch {
             val photo = try {
-                engine.takePhoto()
+                takePhoto()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -517,7 +523,7 @@ class CameraViewModel(
         _state.update { it.copy(shutterCount = it.shutterCount + 1) }
         viewModelScope.launch {
             val photo = try {
-                engine.takePhoto()
+                takePhoto()
             } catch (e: CancellationException) {
                 exposing = false
                 throw e
@@ -606,7 +612,7 @@ class CameraViewModel(
         _state.update { it.copy(shutterCount = it.shutterCount + 1) }
         viewModelScope.launch {
             try {
-                val photo = engine.takePhoto()
+                val photo = takePhoto()
                 val onion = container.photoPipeline.ghost(photo, mirror = photo.front)
                 val nowMillis = System.currentTimeMillis()
                 val capturedAt = LocalDateTime.now()
@@ -686,7 +692,7 @@ class CameraViewModel(
                     _state.update { it.copy(countdown = null) }
                     playSound(MediaActionSound.SHUTTER_CLICK, settings)
                     _state.update { it.copy(shutterCount = it.shutterCount + 1) }
-                    shots += engine.takePhoto()
+                    shots += takePhoto()
                 }
             } catch (e: CancellationException) {
                 _state.update { it.copy(booth = null, countdown = null) }
@@ -948,7 +954,7 @@ class CameraViewModel(
     /**
      * Zooms to [ratio] as the user sees zoom (0.6 is an ultra-wide's 0.6×). Below 1× on a phone
      * with an ultra-wide of its own, the camera switches to it, and back at 1× and up. Past the
-     * lens, the VHS look carries on with blocky digital zoom.
+     * lens, digital zoom carries on.
      */
     fun setZoom(ratio: Float) {
         val s = _state.value

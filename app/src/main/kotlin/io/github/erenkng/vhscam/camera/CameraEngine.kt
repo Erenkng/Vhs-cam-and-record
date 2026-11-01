@@ -135,7 +135,13 @@ class CapturedPhoto(
     val bitmap: Bitmap?,
     val rotationDegrees: Int,
     val front: Boolean,
-)
+    /** Digital zoom past the lens: the photo is the middle 1 / zoom of the picture. */
+    val zoom: Float = 1f,
+) {
+    /** This capture framed with digital [zoom] (1 or less leaves it as it is). */
+    fun zoomed(zoom: Float): CapturedPhoto =
+        if (zoom <= 1f) this else CapturedPhoto(jpeg, bitmap, rotationDegrees, front, zoom)
+}
 
 sealed interface RecordTarget {
     data class ToFile(val file: File) : RecordTarget

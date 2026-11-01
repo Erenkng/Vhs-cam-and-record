@@ -40,6 +40,7 @@ class OriginalsStore(context: Context) {
             setProperty(FRONT, photo.front.toString())
             setProperty(MIRROR, mirror.toString())
             setProperty(TAKEN, capturedAtMillis.toString())
+            setProperty(ZOOM, photo.zoom.toString())
         }
         meta(id).outputStream().use { properties.store(it, null) }
     }
@@ -54,6 +55,7 @@ class OriginalsStore(context: Context) {
                 bitmap = null,
                 rotationDegrees = properties.getProperty(ROTATION)?.toIntOrNull() ?: 0,
                 front = properties.getProperty(FRONT) == "true",
+                zoom = properties.getProperty(ZOOM)?.toFloatOrNull() ?: 1f,
             ),
             mirror = properties.getProperty(MIRROR) == "true",
             capturedAtMillis = properties.getProperty(TAKEN)?.toLongOrNull() ?: System.currentTimeMillis(),
@@ -78,5 +80,6 @@ class OriginalsStore(context: Context) {
         const val FRONT = "front"
         const val MIRROR = "mirror"
         const val TAKEN = "taken"
+        const val ZOOM = "zoom"
     }
 }
