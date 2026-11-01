@@ -263,7 +263,9 @@ class ScreenshotTest {
                 settings = settings.copy(mode = CaptureMode.PHOTO, photoLook = Look.CINE),
                 settingsLoaded = true,
                 signal = true,
-                zoom = ZoomInfo(ratio = 1f, min = 0.6f, max = 10f),
+                zoom = ZoomInfo(ratio = 10f, min = 0.6f, max = 10f),
+                // Digital zoom works in every look now, with a chip to undo it.
+                digitalZoom = 2.4f,
                 capabilities = CameraCapabilities(hasFlash = true),
             ),
             actions = CameraActions(),

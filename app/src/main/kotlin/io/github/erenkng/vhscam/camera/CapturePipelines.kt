@@ -37,6 +37,7 @@ import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /** Turns a captured JPEG into a finished retro photo in the gallery. */
@@ -384,18 +385,30 @@ class PhotoPipeline(
      * The bitmap is the caller's to recycle; a capture's own bitmap is left alone.
      */
     fun decodeUpright(photo: CapturedPhoto, neededLongEdge: Int): Bitmap {
-        val decoded = photo.bitmap ?: run {
+        val zoom = photo.zoom.coerceAtLeast(1f)
+        val whole = photo.bitmap ?: run {
             val jpeg = photo.jpeg ?: error("Empty capture")
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, bounds)
             var sample = 1
             val longEdge = max(bounds.outWidth, bounds.outHeight)
-            while (longEdge / (sample * 2) >= neededLongEdge) sample *= 2
+            // The digital zoom keeps only part of it, so that part has to be big enough.
+            while (longEdge / zoom / (sample * 2) >= neededLongEdge) sample *= 2
             val options = BitmapFactory.Options().apply {
                 inSampleSize = sample
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
             BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, options) ?: error("Cannot decode capture")
+        }
+        // The middle of the picture, which is the middle however the picture is turned.
+        val decoded = if (zoom > 1f) {
+            val w = (whole.width / zoom).roundToInt().coerceIn(1, whole.width)
+            val h = (whole.height / zoom).roundToInt().coerceIn(1, whole.height)
+            Bitmap.createBitmap(whole, (whole.width - w) / 2, (whole.height - h) / 2, w, h).also { cropped ->
+                if (cropped !== whole && whole !== photo.bitmap) whole.recycle()
+            }
+        } else {
+            whole
         }
         val ours = decoded !== photo.bitmap
         val longEdge = max(decoded.width, decoded.height)

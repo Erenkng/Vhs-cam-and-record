@@ -120,7 +120,7 @@ fun ViewfinderPanel(
         motion.defaultSpatialSpec(),
         label = "rotation",
     )
-    // The camcorder's zoom bar shows while zooming, and stays while the digital zoom is on.
+    // The camcorder's zoom bar shows while zooming; past the lens a chip says so and undoes it.
     var zooming by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         snapshotFlow { currentZoom }.drop(1).collectLatest {
@@ -272,7 +272,7 @@ fun ViewfinderPanel(
                 }
 
                 AnimatedVisibility(
-                    visible = state.digitalZoomAvailable && (zooming || state.digitalZoom > 1f),
+                    visible = state.digitalZoomAvailable && zooming,
                     enter = fadeIn(tween(90)),
                     exit = fadeOut(tween(400)),
                     modifier = Modifier.align(Alignment.Center),
@@ -284,6 +284,14 @@ fun ViewfinderPanel(
                         lensMax = main.max,
                         max = main.max * CameraViewModel.DIGITAL_ZOOM_MAX,
                     )
+                }
+                AnimatedVisibility(
+                    visible = state.digitalZoom > 1f && !state.isRecording,
+                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
+                ) {
+                    DigitalZoomChip(zoom = state.digitalZoom, onReset = { actions.onZoom(1f) })
                 }
             }
         }
