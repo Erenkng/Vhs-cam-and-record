@@ -142,6 +142,16 @@
     <string name="look_gameboy">8-bit</string>
     <string name="look_webcam">Webcam</string>
     <string name="look_cctv">CCTV</string>
+    <string name="look_minidv">MiniDV</string>
+    <string name="look_nightshot">Gece görüşü</string>
+    <string name="look_crt">Tüplü TV</string>
+    <string name="look_silver">Gümüş 400</string>
+    <string name="look_aerochrome">Kızılötesi</string>
+    <string name="look_cross">Çapraz banyo</string>
+    <string name="look_slide">Slayt 50</string>
+    <string name="look_mavica">Disket</string>
+    <string name="look_flip">Kapaklı telefon</string>
+    <string name="look_thermal">Fiş kamera</string>
     <string name="look_super8">Super 8</string>
     <string name="look_disposable">Kullan-at</string>
     <string name="look_gold">Altın</string>
@@ -230,6 +240,16 @@
     <string name="look_desc_gameboy">Dört yeşil tonlu 8-bit el konsolu kamerası.</string>
     <string name="look_desc_webcam">2005 webcam\'i: soğuk, karıncalı ve bloklu.</string>
     <string name="look_desc_cctv">Güvenlik kamerası: siyah-beyaz, saat damgalı.</string>
+    <string name="look_desc_minidv">Kaykay videosu kamerası: balıkgözü, taraklı satırlar ve kaset zaman kodu.</string>
+    <string name="look_desc_nightshot">Kızılötesi gece modu: fosfor yeşili, parlayan ışıklar ve hayalet izi.</string>
+    <string name="look_desc_crt">Eski televizyon: bombeli cam, RGB şeritler ve titreyen satırlar.</string>
+    <string name="look_desc_silver">Karanlık oda siyah-beyazı: derin kontrast, iri gren, koyu köşeler.</string>
+    <string name="look_desc_aerochrome">Kızılötesi film: yeşil yapraklar pembe-kızıl, gökyüzü koyu.</string>
+    <string name="look_desc_cross">Yanlış kimyasalda banyo: yeşil gölgeler, macenta parlamalar, plastik mercek.</string>
+    <string name="look_desc_slide">Projeksiyon slaytı: canlı renkler, derin siyahlar ve yuvarlak çerçeve.</string>
+    <string name="look_desc_mavica">Disketli kamera: keskin pikseller, patlayan ışıklar ve sensör izi.</string>
+    <string name="look_desc_flip">2004 kameralı telefon: küçük, bloklu, mor-yeşil gürültülü.</string>
+    <string name="look_desc_thermal">Fiş kâğıdına basar: siyah-beyaz noktalarla bir fiş.</string>
     <string name="roll_title">Kullan-at rulo</string>
     <plurals name="roll_left">
         <item quantity="one">%d poz kaldı</item>
@@ -296,4 +316,5 @@
     <string name="msg_animation_saved">Animasyon kaydedildi</string>
     <string name="msg_animation_failed">Animasyon kaydedilemedi</string>
     <string name="snapshot">Bu kareyi fotoğraf olarak kaydet</string>
+    <string name="receipt_thanks">* * *  TEŞEKKÜRLER  * * *</string>
 </resources>

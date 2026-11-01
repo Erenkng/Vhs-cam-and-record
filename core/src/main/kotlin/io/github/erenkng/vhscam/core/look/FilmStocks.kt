@@ -1,7 +1,7 @@
 package io.github.erenkng.vhscam.core.look
 
 /**
- * A colour film stock for the film stock shader. Colours are r, g, b; [matrix] is row-major.
+ * A film stock for the film stock shader. Colours are r, g, b; [matrix] is row-major.
  * Distances are in pixels of a 1600 px high frame.
  */
 data class FilmStockParams(
@@ -24,6 +24,12 @@ data class FilmStockParams(
     /** 0 grey grain .. 1 grain in coloured, mostly red, dye clouds. */
     val redGrain: Float = 0f,
     val vignette: Float = 0f,
+    /** A plastic lens's blur towards the corners. */
+    val softness: Float = 0f,
+    /** A slide's mount: a dark frame with rounded corners, 0..1. */
+    val mount: Float = 0f,
+    /** Black and white film: no colour at any strength. */
+    val monochrome: Boolean = false,
 ) {
     companion object {
         val IDENTITY = listOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
@@ -31,7 +37,7 @@ data class FilmStockParams(
     }
 }
 
-/** The colour film looks that share the film stock shader, with their character. */
+/** The film looks that share the film stock shader, with their character. */
 object FilmStocks {
 
     private val stocks: Map<Look, FilmStockParams> = mapOf(
@@ -79,6 +85,43 @@ object FilmStocks {
             halation = 0.3f,
             grain = 0.11f, grainSize = 1.9f, redGrain = 0.8f, vignette = 0.35f,
         ),
+        // Black and white darkroom film: blue held back like through a yellow filter, so skies
+        // go dark; deep contrast, coarse silver grain and a hard vignette.
+        Look.SILVER to FilmStockParams(
+            exposure = 0.05f, contrast = 1.35f,
+            matrix = listOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0.6f),
+            saturation = 0f, monochrome = true,
+            grain = 0.16f, grainSize = 2.2f, vignette = 0.7f,
+        ),
+        // Infrared colour film: the infrared record (high for leaves, low for sky) comes out red,
+        // red comes out green and green blue - leaves turn pink, skies go deep teal.
+        Look.AEROCHROME to FilmStockParams(
+            exposure = 0.1f, contrast = 1.12f, fade = 0.02f,
+            matrix = listOf(0.3f, 1.1f, -0.6f, 1f, 0f, 0f, 0f, 0.6f, 0.1f),
+            saturation = 1.15f,
+            shadowTint = listOf(1f, 0.96f, 1.02f), highlightTint = listOf(1.02f, 1f, 0.96f),
+            halation = 0.5f, halationTint = listOf(1f, 0.35f, 0.5f),
+            grain = 0.07f, grainSize = 1.8f, redGrain = 0.3f, vignette = 0.25f,
+        ),
+        // Slide film developed as a negative, through a toy camera's plastic lens: hard contrast,
+        // green shadows, magenta flares and blurred corners.
+        Look.CROSS to FilmStockParams(
+            exposure = 0.1f, contrast = 1.35f, fade = 0.03f,
+            matrix = listOf(1.1f, -0.05f, -0.05f, 0.05f, 1.1f, -0.05f, -0.1f, 0.1f, 0.85f),
+            saturation = 1.35f,
+            shadowTint = listOf(0.74f, 1.16f, 0.86f), highlightTint = listOf(1.14f, 0.9f, 1.12f),
+            halation = 1f, halationTint = listOf(1f, 0.2f, 0.8f),
+            grain = 0.08f, grainSize = 1.9f, redGrain = 0.4f, vignette = 0.65f, softness = 1.3f,
+        ),
+        // Fine-grained slide film, projected: very saturated colour, deep blacks, in its mount.
+        Look.SLIDE to FilmStockParams(
+            exposure = -0.15f, contrast = 1.32f,
+            matrix = listOf(1.04f, -0.02f, 0f, -0.02f, 1.03f, 0f, 0f, -0.02f, 1.06f),
+            saturation = 1.45f,
+            shadowTint = listOf(0.97f, 0.95f, 1.04f), highlightTint = listOf(1.02f, 1f, 0.98f),
+            halation = 0.1f,
+            grain = 0.035f, grainSize = 1.3f, redGrain = 0.2f, vignette = 0.18f, mount = 1f,
+        ),
     )
 
     /** Looks drawn by the film stock shader. */
@@ -95,12 +138,14 @@ object FilmStocks {
             contrast = scaled(1f, d.contrast),
             fade = scaled(0f, d.fade),
             matrix = scaled(FilmStockParams.IDENTITY, d.matrix),
-            saturation = scaled(1f, d.saturation),
+            saturation = if (d.monochrome) 0f else scaled(1f, d.saturation),
             shadowTint = scaled(FilmStockParams.NEUTRAL, d.shadowTint),
             highlightTint = scaled(FilmStockParams.NEUTRAL, d.highlightTint),
             halation = scaled(0f, d.halation),
             grain = scaled(0f, d.grain),
             vignette = scaled(0f, d.vignette),
+            softness = scaled(0f, d.softness),
+            mount = scaled(0f, d.mount).coerceAtMost(1f),
         )
     }
 }

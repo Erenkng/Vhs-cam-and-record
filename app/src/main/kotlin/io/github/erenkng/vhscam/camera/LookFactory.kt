@@ -28,14 +28,22 @@ object LookFactory {
                 effect = settings.effect,
             )
             Look.SUPER8 -> LookSpec.Super8(PhotoLookPresets.super8(intensity))
+            Look.MINIDV -> LookSpec.MiniDv(PhotoLookPresets.miniDv(intensity))
+            Look.NIGHTSHOT -> LookSpec.NightShot(PhotoLookPresets.nightShot(intensity))
+            Look.CRT -> LookSpec.Crt(PhotoLookPresets.crt(intensity))
             Look.FILM -> LookSpec.Film(PhotoLookPresets.film(intensity), seed)
-            Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE ->
+            Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE,
+            Look.SILVER, Look.AEROCHROME, Look.CROSS, Look.SLIDE,
+            ->
                 LookSpec.FilmStock(look, FilmStocks.params(look, intensity))
             Look.DISPOSABLE -> LookSpec.Disposable(PhotoLookPresets.disposable(intensity))
             Look.POLAROID -> LookSpec.Polaroid(PhotoLookPresets.polaroid(intensity), seed)
             Look.CCD -> LookSpec.Ccd(PhotoLookPresets.ccd(intensity))
+            Look.MAVICA -> LookSpec.Mavica(PhotoLookPresets.mavica(intensity))
             Look.GAMEBOY -> LookSpec.GameBoy(PhotoLookPresets.gameBoy(intensity))
             Look.WEBCAM -> LookSpec.Webcam(PhotoLookPresets.webcam(intensity))
+            Look.FLIP -> LookSpec.FlipPhone(PhotoLookPresets.flipPhone(intensity))
+            Look.THERMAL -> LookSpec.Thermal(PhotoLookPresets.thermal(intensity))
             Look.CCTV -> LookSpec.Cctv(PhotoLookPresets.cctv(intensity))
         }
     }
@@ -74,17 +82,39 @@ object LookFactory {
                 speedLabel = settings.tapeSpeed.name,
                 counter = if (settings.counterOsd) DateStamp.tapeCounter(counterMillis) else null,
             )
+            // A camcorder burns its date in, like the VHS one.
+            Look.NIGHTSHOT -> OsdContent(
+                camcorderTime = if (settings.dateStamp && settings.timeStamp) {
+                    DateStamp.vhsTime(time, settings.clockStyle)
+                } else {
+                    null
+                },
+                camcorderDate = if (settings.dateStamp) DateStamp.vhsDate(time, settings.dateOrder) else null,
+            )
+            // DV shows the tape's timecode while filming, and its data code (time, date) crisp on top.
+            Look.MINIDV -> OsdContent(
+                camcorderTime = if (settings.dateStamp && settings.timeStamp) {
+                    DateStamp.vhsTime(time, settings.clockStyle)
+                } else {
+                    null
+                },
+                camcorderDate = if (settings.dateStamp) DateStamp.vhsDate(time, settings.dateOrder) else null,
+                timecode = if (settings.mode.films) DateStamp.timecode(counterMillis) else null,
+            )
             Look.CCD -> OsdContent(
                 digitalStamp = if (settings.dateStamp) DateStamp.ccdDate(time, settings.dateOrder) else null,
             )
             // Film cameras of the time printed the date with an orange data back.
-            Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE -> OsdContent(
+            Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE,
+            Look.SILVER, Look.AEROCHROME, Look.CROSS, Look.SLIDE,
+            -> OsdContent(
                 filmStamp = if (settings.dateStamp) DateStamp.filmDate(time, settings.dateOrder) else null,
             )
             // A security camera always stamps the time; the toggle only hides it.
             Look.CCTV -> OsdContent(
                 cctvStamp = if (settings.dateStamp) DateStamp.cctvStamp(time, settings.dateOrder) else null,
             )
-            Look.SUPER8, Look.POLAROID, Look.GAMEBOY, Look.WEBCAM -> OsdContent()
+            Look.SUPER8, Look.CRT, Look.POLAROID, Look.MAVICA, Look.GAMEBOY, Look.WEBCAM, Look.FLIP, Look.THERMAL ->
+                OsdContent()
         }
 }

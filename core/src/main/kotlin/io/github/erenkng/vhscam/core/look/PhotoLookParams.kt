@@ -145,6 +145,91 @@ data class DisposableParams(
     val vignette: Float = 0.5f,
 )
 
+/** Late-90s MiniDV camcorder with a fisheye. Distances are in pixels of a 480 line frame. */
+data class MiniDvParams(
+    /** How much the fisheye bulges the picture. */
+    val fisheye: Float = 0.6f,
+    /** The lens hood rounding off the corners. */
+    val hood: Float = 0.6f,
+    /** How far interlaced fields are out where they comb. */
+    val comb: Float = 1.2f,
+    val sharpen: Float = 0.6f,
+    val saturation: Float = 1.15f,
+    val contrast: Float = 1.1f,
+    val noise: Float = 0.03f,
+    val vignette: Float = 0.25f,
+)
+
+/** A camcorder's infrared night mode. Distances are in pixels of a 480 line frame. */
+data class NightShotParams(
+    val gain: Float = 1.5f,
+    /** Bloom around lights. */
+    val glow: Float = 0.6f,
+    /** The picture's faint echo beside it, and trails in video. */
+    val ghost: Float = 0.35f,
+    val noise: Float = 0.14f,
+    /** How much the infrared lamp lights the middle more than the edges. */
+    val spot: Float = 0.5f,
+    val scanlines: Float = 0.15f,
+)
+
+/** A picture on a curved CRT television. */
+data class CrtParams(
+    val curvature: Float = 0.6f,
+    /** The red, green and blue phosphor stripes. */
+    val mask: Float = 0.6f,
+    val scanlines: Float = 0.5f,
+    val flicker: Float = 0.4f,
+    val glow: Float = 0.5f,
+    val saturation: Float = 1.1f,
+    /** Light from the room on the glass. */
+    val glare: Float = 0.35f,
+    val vignette: Float = 0.35f,
+)
+
+/** 2004 camera phone filming 3GP. */
+data class FlipPhoneParams(
+    /** 16 x 16 macroblocks of a codec working hard. */
+    val blockiness: Float = 0.7f,
+    /** Purple and green sensor noise. */
+    val noise: Float = 0.14f,
+    val saturation: Float = 0.85f,
+    val contrast: Float = 1.25f,
+    val tintR: Float = 1.04f,
+    val tintG: Float = 1.02f,
+    val tintB: Float = 0.86f,
+    val sharpen: Float = 0.5f,
+)
+
+/** Camera that prints on till roll. */
+data class ThermalParams(
+    val contrast: Float = 1.35f,
+    val brightness: Float = 0.06f,
+    /** 0 a hard threshold .. 1 a full ordered dither. */
+    val dither: Float = 1f,
+    /** Paper fibres and streaks from the print head. */
+    val paper: Float = 0.6f,
+    /** Grey rather than black print. */
+    val fade: Float = 0.12f,
+)
+
+/** Late-90s floppy-disk camera with a 640 x 480 CCD. */
+data class MavicaParams(
+    val saturation: Float = 0.95f,
+    val contrast: Float = 1.2f,
+    /** Where highlights start shooting up to white: a narrow dynamic range. */
+    val highlightKnee: Float = 0.74f,
+    /** Vertical smear and bloom from bright lights on the CCD. */
+    val smear: Float = 0.6f,
+    val sharpen: Float = 0.5f,
+    val noise: Float = 0.035f,
+    val tintR: Float = 0.96f,
+    val tintG: Float = 1.0f,
+    val tintB: Float = 1.06f,
+    /** JPEG quality used to bake in block artefacts when saving. */
+    val jpegQuality: Int = 55,
+)
+
 /** Scales a look between a gentle (0) and a heavy (1) version; 0.5 is the default design. */
 object PhotoLookPresets {
 
@@ -253,6 +338,93 @@ object PhotoLookPresets {
             noise = d.noise * k,
             blockiness = (d.blockiness * k).coerceAtMost(1f),
             vignette = d.vignette * k,
+        )
+    }
+
+    fun miniDv(intensity: Float = 0.5f): MiniDvParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = MiniDvParams()
+        return d.copy(
+            fisheye = d.fisheye * k,
+            hood = (d.hood * k).coerceAtMost(1f),
+            comb = d.comb * k,
+            sharpen = d.sharpen * k,
+            saturation = 1f + (d.saturation - 1f) * k,
+            contrast = 1f + (d.contrast - 1f) * k,
+            noise = d.noise * k,
+            vignette = d.vignette * k,
+        )
+    }
+
+    /** Night mode stays green at any strength; the strength is how much the camera struggles. */
+    fun nightShot(intensity: Float = 0.5f): NightShotParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = NightShotParams()
+        return d.copy(
+            glow = d.glow * k,
+            ghost = d.ghost * k,
+            noise = d.noise * k,
+            spot = (d.spot * k).coerceAtMost(1f),
+            scanlines = d.scanlines * k,
+        )
+    }
+
+    fun crt(intensity: Float = 0.5f): CrtParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = CrtParams()
+        return d.copy(
+            curvature = d.curvature * k,
+            mask = (d.mask * k).coerceAtMost(1f),
+            scanlines = (d.scanlines * k).coerceAtMost(1f),
+            flicker = d.flicker * k,
+            glow = d.glow * k,
+            saturation = 1f + (d.saturation - 1f) * k,
+            glare = d.glare * k,
+            vignette = d.vignette * k,
+        )
+    }
+
+    fun flipPhone(intensity: Float = 0.5f): FlipPhoneParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = FlipPhoneParams()
+        return d.copy(
+            blockiness = (d.blockiness * k).coerceAtMost(1f),
+            noise = d.noise * k,
+            saturation = 1f + (d.saturation - 1f) * k,
+            contrast = 1f + (d.contrast - 1f) * k,
+            tintR = 1f + (d.tintR - 1f) * k,
+            tintG = 1f + (d.tintG - 1f) * k,
+            tintB = 1f + (d.tintB - 1f) * k,
+            sharpen = d.sharpen * k,
+        )
+    }
+
+    /** Always printed in dots; the strength is contrast, paper and how faded the print is. */
+    fun thermal(intensity: Float = 0.5f): ThermalParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = ThermalParams()
+        return d.copy(
+            contrast = 1f + (d.contrast - 1f) * k,
+            brightness = d.brightness * k,
+            paper = d.paper * k,
+            fade = d.fade * k,
+        )
+    }
+
+    fun mavica(intensity: Float = 0.5f): MavicaParams {
+        val k = 2f * intensity.coerceIn(0f, 1f)
+        val d = MavicaParams()
+        return d.copy(
+            saturation = 1f + (d.saturation - 1f) * k,
+            contrast = 1f + (d.contrast - 1f) * k,
+            highlightKnee = 1f - (1f - d.highlightKnee) * k,
+            smear = d.smear * k,
+            sharpen = d.sharpen * k,
+            noise = d.noise * k,
+            tintR = 1f + (d.tintR - 1f) * k,
+            tintG = 1f + (d.tintG - 1f) * k,
+            tintB = 1f + (d.tintB - 1f) * k,
+            jpegQuality = (90 - (90 - d.jpegQuality) * k).toInt().coerceIn(20, 95),
         )
     }
 

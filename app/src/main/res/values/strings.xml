@@ -151,6 +151,16 @@
     <string name="look_gameboy">8-bit</string>
     <string name="look_webcam">Webcam</string>
     <string name="look_cctv">CCTV</string>
+    <string name="look_minidv">MiniDV</string>
+    <string name="look_nightshot">NightShot</string>
+    <string name="look_crt">CRT TV</string>
+    <string name="look_silver">Silver 400</string>
+    <string name="look_aerochrome">Aerochrome</string>
+    <string name="look_cross">Cross-process</string>
+    <string name="look_slide">Slide 50</string>
+    <string name="look_mavica">Mavica</string>
+    <string name="look_flip">Flip phone</string>
+    <string name="look_thermal">Receipt cam</string>
     <string name="look_super8">Super 8</string>
     <string name="look_disposable">Disposable</string>
     <string name="look_gold">Gold</string>
@@ -239,6 +249,16 @@
     <string name="look_desc_gameboy">8-bit handheld camera in four shades of green.</string>
     <string name="look_desc_webcam">2005 webcam: cold, noisy and blocky.</string>
     <string name="look_desc_cctv">Security camera: black and white, with the time.</string>
+    <string name="look_desc_minidv">Skate video camcorder: fisheye, combed lines and the tape\'s timecode.</string>
+    <string name="look_desc_nightshot">Infrared night mode: phosphor green, glowing lights and ghosting.</string>
+    <string name="look_desc_crt">An old TV screen: curved glass, RGB stripes and flickering lines.</string>
+    <string name="look_desc_silver">Darkroom black and white: deep contrast, coarse grain, dark corners.</string>
+    <string name="look_desc_aerochrome">Infrared film: green leaves turn pink and red, skies go deep.</string>
+    <string name="look_desc_cross">Film in the wrong chemistry: green shadows, magenta flares, a soft plastic lens.</string>
+    <string name="look_desc_slide">Projected slide: punchy colour, deep blacks and a rounded mount.</string>
+    <string name="look_desc_mavica">Floppy-disk camera: sharp pixels, clipped highlights and sensor smear.</string>
+    <string name="look_desc_flip">2004 camera phone: tiny, blocky and noisy in purple and green.</string>
+    <string name="look_desc_thermal">Prints on till roll: black and white dots on a paper receipt.</string>
     <string name="roll_title">Disposable roll</string>
     <plurals name="roll_left">
         <item quantity="one">%d shot left</item>
@@ -305,4 +325,5 @@
     <string name="msg_animation_saved">Animation saved</string>
     <string name="msg_animation_failed">Could not save the animation</string>
     <string name="snapshot">Save this frame as a photo</string>
+    <string name="receipt_thanks">* * *  THANK YOU  * * *</string>
 </resources>

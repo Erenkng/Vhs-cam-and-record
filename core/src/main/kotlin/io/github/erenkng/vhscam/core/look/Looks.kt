@@ -66,6 +66,18 @@ enum class Look(
         workLines = 540, pictureRate = 18,
     ),
 
+    /** Late-90s MiniDV camcorder with a fisheye: the skate video look, with the tape's timecode. */
+    MINIDV(LookCategory.HOME_VIDEO, cropAspect = 4f / 3f, stillLongEdge = 1440, filePrefix = "MINIDV", video = true, workLines = 480),
+
+    /** A camcorder's infrared night mode: phosphor green, lit by the camera's own lamp. */
+    NIGHTSHOT(
+        LookCategory.HOME_VIDEO, cropAspect = 4f / 3f, stillLongEdge = 1440, filePrefix = "NIGHTSHOT", video = true,
+        workLines = 480,
+    ),
+
+    /** The picture on a curved CRT television. */
+    CRT(LookCategory.HOME_VIDEO, cropAspect = 4f / 3f, stillLongEdge = 1440, filePrefix = "CRT", video = true, workLines = 720),
+
     /** 35 mm compact camera with light leaks. */
     FILM(LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "FILM", video = false, workLines = null),
 
@@ -76,11 +88,28 @@ enum class Look(
     RED_GRAIN(LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "REDGRAIN", video = false, workLines = null),
     REDSCALE(LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "REDSCALE", video = false, workLines = null),
 
+    /** Black and white darkroom film: deep contrast, coarse silver grain, a hard vignette. */
+    SILVER(LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "SILVER400", video = false, workLines = null),
+
+    /** False-colour infrared film: green leaves turn pink and red, skies go deep. */
+    AEROCHROME(
+        LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "AEROCHROME", video = false, workLines = null,
+    ),
+
+    /** Film developed in the wrong chemistry, through a plastic lens: green shadows, magenta flares. */
+    CROSS(LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "XPRO", video = false, workLines = null),
+
+    /** Slide film in its mount: very saturated colour and deep blacks. */
+    SLIDE(LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 2400, filePrefix = "SLIDE50", video = false, workLines = null),
+
     /** Single-use camera with a flash: shots go on a 27-exposure roll that has to be developed. */
     DISPOSABLE(LookCategory.FILM, cropAspect = 3f / 2f, stillLongEdge = 1800, filePrefix = "DISPO", video = false, workLines = null),
     POLAROID(LookCategory.FILM, cropAspect = 1f, stillLongEdge = 1600, filePrefix = "POLA", video = false, workLines = null),
 
     CCD(LookCategory.DIGITAL, cropAspect = 4f / 3f, stillLongEdge = 1600, filePrefix = "CCD", video = false, workLines = null),
+
+    /** Late-90s floppy-disk camera: 640 x 480, a narrow range and CCD smear; pixels scaled up sharp. */
+    MAVICA(LookCategory.DIGITAL, cropAspect = 4f / 3f, stillLongEdge = 1280, filePrefix = "MVC", video = false, workLines = 480),
 
     /** 8-bit handheld camera: 128 x 112 pixels in four shades of green, 8x magnified photos. */
     GAMEBOY(
@@ -93,6 +122,15 @@ enum class Look(
         LookCategory.DIGITAL, cropAspect = 4f / 3f, stillLongEdge = 960, filePrefix = "WEBCAM", video = true, workLines = 240,
         holdFrames = 2,
     ),
+
+    /** 2004 camera phone: 176 x 144 3GP video at 15 fps, macroblocks and purple-green noise. */
+    FLIP(
+        LookCategory.DIGITAL, cropAspect = 11f / 9f, stillLongEdge = 880, filePrefix = "3GP", video = true, workLines = 144,
+        holdFrames = 2,
+    ),
+
+    /** Camera that prints on till roll: 384 one-bit dots across, on a receipt. */
+    THERMAL(LookCategory.DIGITAL, cropAspect = 4f / 3f, stillLongEdge = 1536, filePrefix = "THERMAL", video = false, workLines = 288),
 
     /** Security camera: black and white, 5 fps, time stamp. */
     CCTV(

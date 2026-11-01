@@ -1015,34 +1015,54 @@ fun CaptureMode.label(): Int = when (this) {
 fun Look.sample(): Int = when (this) {
     Look.VHS -> R.drawable.onboarding_vhs
     Look.SUPER8 -> R.drawable.onboarding_super8
+    Look.MINIDV -> R.drawable.onboarding_minidv
+    Look.NIGHTSHOT -> R.drawable.onboarding_nightshot
+    Look.CRT -> R.drawable.onboarding_crt
     Look.CCD -> R.drawable.onboarding_ccd
+    Look.MAVICA -> R.drawable.onboarding_mavica
     Look.FILM -> R.drawable.onboarding_film
     Look.GOLD -> R.drawable.onboarding_gold
     Look.PORTRAIT -> R.drawable.onboarding_portrait
     Look.CINE -> R.drawable.onboarding_cine
     Look.RED_GRAIN -> R.drawable.onboarding_red_grain
     Look.REDSCALE -> R.drawable.onboarding_redscale
+    Look.SILVER -> R.drawable.onboarding_silver
+    Look.AEROCHROME -> R.drawable.onboarding_aerochrome
+    Look.CROSS -> R.drawable.onboarding_cross
+    Look.SLIDE -> R.drawable.onboarding_slide
     Look.DISPOSABLE -> R.drawable.onboarding_disposable
     Look.POLAROID -> R.drawable.onboarding_instant
     Look.GAMEBOY -> R.drawable.onboarding_gameboy
     Look.WEBCAM -> R.drawable.onboarding_webcam
+    Look.FLIP -> R.drawable.onboarding_flip
+    Look.THERMAL -> R.drawable.onboarding_thermal
     Look.CCTV -> R.drawable.onboarding_cctv
 }
 
 fun Look.label(): Int = when (this) {
     Look.VHS -> R.string.look_vhs
     Look.SUPER8 -> R.string.look_super8
+    Look.MINIDV -> R.string.look_minidv
+    Look.NIGHTSHOT -> R.string.look_nightshot
+    Look.CRT -> R.string.look_crt
     Look.CCD -> R.string.look_ccd
+    Look.MAVICA -> R.string.look_mavica
     Look.FILM -> R.string.look_film
     Look.GOLD -> R.string.look_gold
     Look.PORTRAIT -> R.string.look_portrait
     Look.CINE -> R.string.look_cine
     Look.RED_GRAIN -> R.string.look_red_grain
     Look.REDSCALE -> R.string.look_redscale
+    Look.SILVER -> R.string.look_silver
+    Look.AEROCHROME -> R.string.look_aerochrome
+    Look.CROSS -> R.string.look_cross
+    Look.SLIDE -> R.string.look_slide
     Look.DISPOSABLE -> R.string.look_disposable
     Look.POLAROID -> R.string.look_polaroid
     Look.GAMEBOY -> R.string.look_gameboy
     Look.WEBCAM -> R.string.look_webcam
+    Look.FLIP -> R.string.look_flip
+    Look.THERMAL -> R.string.look_thermal
     Look.CCTV -> R.string.look_cctv
 }
 

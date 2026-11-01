@@ -88,6 +88,13 @@ object DateStamp {
         return "$h:${m.toInt().twoDigits()}:${s.toInt().twoDigits()}"
     }
 
+    /** A DV tape's timecode, hours to frames at 30 a second, e.g. `0:01:05:12`. */
+    fun timecode(elapsedMillis: Long): String {
+        val millis = elapsedMillis.coerceAtLeast(0L)
+        val frames = ((millis % 1000L) * 30L / 1000L).toInt()
+        return "${tapeCounter(millis)}:${frames.twoDigits()}"
+    }
+
     private fun Int.twoDigits(): String = toString().padStart(2, '0')
 }
 

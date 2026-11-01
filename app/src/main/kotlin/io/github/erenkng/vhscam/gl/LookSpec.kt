@@ -3,14 +3,20 @@ package io.github.erenkng.vhscam.gl
 import io.github.erenkng.vhscam.core.look.CamcorderEffect
 import io.github.erenkng.vhscam.core.look.CcdParams
 import io.github.erenkng.vhscam.core.look.CctvParams
+import io.github.erenkng.vhscam.core.look.CrtParams
 import io.github.erenkng.vhscam.core.look.DisposableParams
 import io.github.erenkng.vhscam.core.look.FilmStockParams
 import io.github.erenkng.vhscam.core.look.FilmParams
+import io.github.erenkng.vhscam.core.look.FlipPhoneParams
 import io.github.erenkng.vhscam.core.look.GameBoyParams
 import io.github.erenkng.vhscam.core.look.Look
+import io.github.erenkng.vhscam.core.look.MavicaParams
+import io.github.erenkng.vhscam.core.look.MiniDvParams
+import io.github.erenkng.vhscam.core.look.NightShotParams
 import io.github.erenkng.vhscam.core.look.PolaroidParams
 import io.github.erenkng.vhscam.core.look.Super8Params
 import io.github.erenkng.vhscam.core.look.TapeSpeed
+import io.github.erenkng.vhscam.core.look.ThermalParams
 import io.github.erenkng.vhscam.core.look.VhsParams
 import io.github.erenkng.vhscam.core.look.WebcamParams
 
@@ -83,6 +89,35 @@ sealed interface LookSpec {
         override val kind get() = Look.CCTV
         override val scanlines get() = params.scanlines
     }
+
+    data class MiniDv(val params: MiniDvParams) : LookSpec {
+        override val kind get() = Look.MINIDV
+    }
+
+    data class NightShot(val params: NightShotParams) : LookSpec {
+        override val kind get() = Look.NIGHTSHOT
+        override val scanlines get() = params.scanlines
+    }
+
+    data class Crt(val params: CrtParams) : LookSpec {
+        override val kind get() = Look.CRT
+    }
+
+    data class FlipPhone(val params: FlipPhoneParams) : LookSpec {
+        override val kind get() = Look.FLIP
+    }
+
+    /** Print dots stay sharp when scaled up. */
+    data class Thermal(val params: ThermalParams) : LookSpec {
+        override val kind get() = Look.THERMAL
+        override val nearest get() = true
+    }
+
+    /** The sensor's pixels stay sharp when scaled up. */
+    data class Mavica(val params: MavicaParams) : LookSpec {
+        override val kind get() = Look.MAVICA
+        override val nearest get() = true
+    }
 }
 
 /** Text shown by the on-screen displays. Which fields are used depends on the look. */
@@ -95,6 +130,8 @@ data class OsdContent(
     val digitalStamp: String? = null,
     val filmStamp: String? = null,
     val cctvStamp: String? = null,
+    /** A DV tape's timecode, while filming. */
+    val timecode: String? = null,
 )
 
 /** What the present pass adds on top of the look: the VCR blue screen and the fader. */

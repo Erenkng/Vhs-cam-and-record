@@ -21,6 +21,7 @@ if (process.env.SCENE_PNG) fs.writeFileSync(process.env.SCENE_PNG, Buffer.from(s
 const osd = {
   timeText: '6:42 PM', dateText: 'AUG.14 1998', play: true, counter: '0:12:07',
   ccdText: '2004/08/14 18:42', filmText: "'98 8 14", cctvText: '14-08-1998 18:42:07',
+  timecode: '0:00:12:05', receiptDate: '14.08.1998  18:42',
 };
 const samples = [
   { name: 'vhs', look: 'VHS', speed: 'SP' },
@@ -38,6 +39,17 @@ const samples = [
   { name: 'cine', look: 'CINE' },
   { name: 'red_grain', look: 'RED_GRAIN' },
   { name: 'redscale', look: 'REDSCALE' },
+  { name: 'minidv', look: 'MINIDV' },
+  { name: 'nightshot', look: 'NIGHTSHOT' },
+  { name: 'crt', look: 'CRT' },
+  { name: 'silver', look: 'SILVER' },
+  { name: 'aerochrome', look: 'AEROCHROME' },
+  { name: 'cross', look: 'CROSS' },
+  { name: 'slide', look: 'SLIDE' },
+  { name: 'mavica', look: 'MAVICA' },
+  { name: 'flip', look: 'FLIP' },
+  // Print dots are crisp only at whole multiples of the 384 dot head.
+  { name: 'thermal', look: 'THERMAL', outWidth: 768 },
   { name: 'vhs_night', look: 'VHS', effect: 'NIGHT', overrides: { lumaNoise: 0.08 } },
   { name: 'vhs_sepia', look: 'VHS', effect: 'SEPIA' },
   { name: 'vhs_mono', look: 'VHS', effect: 'MONO' },

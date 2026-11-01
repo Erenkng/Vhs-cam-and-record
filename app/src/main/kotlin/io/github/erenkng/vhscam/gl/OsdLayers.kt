@@ -35,9 +35,8 @@ class OsdLayers(private val painter: OsdPainter) {
         overlayHeight: Int,
     ) {
         val burnedText: List<String?> = when (look) {
-            Look.VHS -> listOf(content.camcorderTime, content.camcorderDate)
-            Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE ->
-                listOf(content.filmStamp)
+            Look.VHS, Look.NIGHTSHOT -> listOf(content.camcorderTime, content.camcorderDate)
+            in FILM_STAMP -> listOf(content.filmStamp)
             else -> emptyList()
         }
         val newBurnedKey = listOf(look, burnedText, burnedWidth, burnedHeight)
@@ -47,9 +46,8 @@ class OsdLayers(private val painter: OsdPainter) {
             if (hasBurned) {
                 burnedTexture = upload(burnedTexture, burnedWidth, burnedHeight) { canvas, w, h ->
                     when (look) {
-                        Look.VHS -> painter.camcorderStamp(canvas, w, h, content.camcorderTime, content.camcorderDate)
-                        Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE ->
-                            content.filmStamp?.let { painter.filmStamp(canvas, w, h, it) }
+                        Look.VHS, Look.NIGHTSHOT -> painter.camcorderStamp(canvas, w, h, content.camcorderTime, content.camcorderDate)
+                        in FILM_STAMP -> content.filmStamp?.let { painter.filmStamp(canvas, w, h, it) }
                         else -> Unit
                     }
                 }
@@ -60,6 +58,7 @@ class OsdLayers(private val painter: OsdPainter) {
             Look.VHS -> listOf(content.playIndicator, content.speedLabel, content.counter)
             Look.CCD -> listOf(content.digitalStamp)
             Look.CCTV -> listOf(content.cctvStamp)
+            Look.MINIDV -> listOf(content.timecode, content.camcorderTime, content.camcorderDate)
             else -> emptyList()
         }
         val newOverlayKey = listOf(look, overlayText, overlayWidth, overlayHeight)
@@ -69,6 +68,7 @@ class OsdLayers(private val painter: OsdPainter) {
                 Look.VHS -> content.playIndicator || content.counter != null
                 Look.CCD -> content.digitalStamp != null
                 Look.CCTV -> true
+                Look.MINIDV -> content.timecode != null || content.camcorderDate != null
                 else -> false
             }
             if (hasOverlay) {
@@ -77,6 +77,7 @@ class OsdLayers(private val painter: OsdPainter) {
                         Look.VHS -> painter.vcrOverlay(canvas, w, h, content.playIndicator, content.speedLabel, content.counter)
                         Look.CCD -> content.digitalStamp?.let { painter.digitalStamp(canvas, w, h, it) }
                         Look.CCTV -> painter.cctvOverlay(canvas, w, h, CCTV_CAMERA, content.cctvStamp)
+                        Look.MINIDV -> painter.dvOverlay(canvas, w, h, content.timecode, content.camcorderTime, content.camcorderDate)
                         else -> Unit
                     }
                 }
@@ -112,5 +113,11 @@ class OsdLayers(private val painter: OsdPainter) {
 
     private companion object {
         const val CCTV_CAMERA = "CAM 01"
+
+        /** Looks whose film data back prints the date in orange. */
+        val FILM_STAMP = setOf(
+            Look.FILM, Look.GOLD, Look.PORTRAIT, Look.CINE, Look.RED_GRAIN, Look.REDSCALE, Look.DISPOSABLE,
+            Look.SILVER, Look.AEROCHROME, Look.CROSS, Look.SLIDE,
+        )
     }
 }

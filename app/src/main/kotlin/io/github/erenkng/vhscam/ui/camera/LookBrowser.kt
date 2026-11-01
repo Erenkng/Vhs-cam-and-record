@@ -235,16 +235,26 @@ fun LookCategory.label(): Int = when (this) {
 fun Look.description(): Int = when (this) {
     Look.VHS -> R.string.look_desc_vhs
     Look.SUPER8 -> R.string.look_desc_super8
+    Look.MINIDV -> R.string.look_desc_minidv
+    Look.NIGHTSHOT -> R.string.look_desc_nightshot
+    Look.CRT -> R.string.look_desc_crt
     Look.FILM -> R.string.look_desc_film
     Look.GOLD -> R.string.look_desc_gold
     Look.PORTRAIT -> R.string.look_desc_portrait
     Look.CINE -> R.string.look_desc_cine
     Look.RED_GRAIN -> R.string.look_desc_red_grain
     Look.REDSCALE -> R.string.look_desc_redscale
+    Look.SILVER -> R.string.look_desc_silver
+    Look.AEROCHROME -> R.string.look_desc_aerochrome
+    Look.CROSS -> R.string.look_desc_cross
+    Look.SLIDE -> R.string.look_desc_slide
     Look.DISPOSABLE -> R.string.look_desc_disposable
     Look.POLAROID -> R.string.look_desc_polaroid
     Look.CCD -> R.string.look_desc_ccd
+    Look.MAVICA -> R.string.look_desc_mavica
     Look.GAMEBOY -> R.string.look_desc_gameboy
     Look.WEBCAM -> R.string.look_desc_webcam
+    Look.FLIP -> R.string.look_desc_flip
+    Look.THERMAL -> R.string.look_desc_thermal
     Look.CCTV -> R.string.look_desc_cctv
 }

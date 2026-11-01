@@ -47,6 +47,13 @@ class DateStampTest {
     }
 
     @Test
+    fun dvTimecodeCountsFrames() {
+        assertEquals("0:00:00:00", DateStamp.timecode(0))
+        assertEquals("0:01:05:12", DateStamp.timecode(65_400))
+        assertEquals("0:00:01:29", DateStamp.timecode(1_999))
+    }
+
+    @Test
     fun camcorderClockKeepsRunningFromTheSetDate() {
         val realNow = 1_700_000_000_000L
         val clock = CamcorderClock.settingTo(newYear, realNow, ZoneOffset.UTC)
