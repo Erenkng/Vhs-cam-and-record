@@ -339,4 +339,8 @@
     <string name="secure_setup_title">Unlock to set up</string>
     <string name="secure_setup_body">VHS Cam needs to be opened once with your phone unlocked before it works from the lock screen.</string>
     <string name="secure_unlock">Unlock</string>
+    <string name="make_tv_clip">Put it on TV (9:16)</string>
+    <string name="tv_making">Putting it on TV…</string>
+    <string name="msg_tv_saved">Saved a 9:16 TV clip for Reels and TikTok</string>
+    <string name="msg_tv_failed">Couldn\'t make the TV clip</string>
 </resources>

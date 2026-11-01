@@ -15,6 +15,7 @@ import io.github.erenkng.vhscam.media.GifMaker
 import io.github.erenkng.vhscam.media.MediaRepository
 import io.github.erenkng.vhscam.media.OriginalsStore
 import io.github.erenkng.vhscam.media.StopMotionReel
+import io.github.erenkng.vhscam.media.TvExporter
 import io.github.erenkng.vhscam.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,7 @@ class AppContainer(context: Context) {
     val gifMaker = GifMaker(context, media)
     val rolls = FilmRollStore(context, media, originals)
     val reel = StopMotionReel(context, media, FrameSequenceEncoder(context))
+    val tvExporter = TvExporter(context, media)
 
     private val _hardwareShutter = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 

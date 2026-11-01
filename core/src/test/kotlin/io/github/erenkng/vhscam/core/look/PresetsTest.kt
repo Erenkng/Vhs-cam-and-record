@@ -165,10 +165,13 @@ class PresetsTest {
         assertEquals("3GP_20261026_090503.mp4", FileNames.video(t, Look.FLIP))
         assertEquals("MVC_20261026_090503.jpg", FileNames.photo(t, Look.MAVICA))
         assertEquals("SILVER400_20261026_090503.jpg", FileNames.photo(t, Look.SILVER))
+        assertEquals("TV_20261026_090503.mp4", FileNames.tv(t))
     }
 
     @Test
     fun lookFilePrefixesAreDistinct() {
         assertEquals(Look.entries.size, Look.entries.map { it.filePrefix }.toSet().size)
+        // Strips, GIFs, animations and TV clips keep names of their own.
+        assertTrue(Look.entries.none { it.filePrefix in FileNames.madePrefixes })
     }
 }

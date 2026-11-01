@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** One-off messages for the viewer's snackbar. */
-enum class GalleryMessage { GIF_SAVED, GIF_FAILED }
+enum class GalleryMessage { GIF_SAVED, GIF_FAILED, TV_SAVED, TV_FAILED }
 
 class GalleryViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -36,6 +36,9 @@ class GalleryViewModel(private val container: AppContainer) : ViewModel() {
 
     /** 0..1 while a GIF is being made, null otherwise. */
     val gifProgress: StateFlow<Float?> = container.gifMaker.progress
+
+    /** 0..1 while a tape is being put on TV, null otherwise. */
+    val tvProgress: StateFlow<Float?> = container.tvExporter.progress
 
     private val _messages = MutableSharedFlow<GalleryMessage>(extraBufferCapacity = 4)
     val messages: SharedFlow<GalleryMessage> = _messages.asSharedFlow()
@@ -71,6 +74,16 @@ class GalleryViewModel(private val container: AppContainer) : ViewModel() {
             val result = runCatching { container.gifMaker.fromVideo(item.uri, startMillis) }
             result.exceptionOrNull()?.let { Log.e(TAG, "Making a GIF failed", it) }
             _messages.tryEmit(if (result.isSuccess) GalleryMessage.GIF_SAVED else GalleryMessage.GIF_FAILED)
+        }
+    }
+
+    /** Puts [item] on an old TV as a 9:16 clip. Keeps going if the user leaves the gallery. */
+    fun makeTvClip(item: CapturedMedia) {
+        if (tvProgress.value != null) return
+        container.appScope.launch {
+            val result = runCatching { container.tvExporter.export(item.uri) }
+            result.exceptionOrNull()?.let { Log.e(TAG, "Making a TV clip failed", it) }
+            _messages.tryEmit(if (result.isSuccess) GalleryMessage.TV_SAVED else GalleryMessage.TV_FAILED)
         }
     }
 

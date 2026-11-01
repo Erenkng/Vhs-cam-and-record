@@ -330,4 +330,8 @@
     <string name="secure_setup_title">Kurulum için kilidi aç</string>
     <string name="secure_setup_body">VHS Cam\'in kilit ekranından açılabilmesi için önce telefonun kilidi açıkken bir kez açılması gerekiyor.</string>
     <string name="secure_unlock">Kilidi aç</string>
+    <string name="make_tv_clip">Televizyona koy (9:16)</string>
+    <string name="tv_making">Televizyona aktarılıyor…</string>
+    <string name="msg_tv_saved">Reels ve TikTok için 9:16 TV klibi kaydedildi</string>
+    <string name="msg_tv_failed">TV klibi yapılamadı</string>
 </resources>
