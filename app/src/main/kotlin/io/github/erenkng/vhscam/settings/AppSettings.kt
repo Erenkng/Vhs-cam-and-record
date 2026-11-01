@@ -67,7 +67,8 @@ data class AppSettings(
     val mirrorSelfies: Boolean = true,
     val shutterSound: Boolean = true,
     val haptics: Boolean = true,
-    val dynamicColor: Boolean = true,
+    /** Wallpaper colours (Android 12+) instead of the app's jade. */
+    val dynamicColor: Boolean = false,
 ) {
     fun intensity(look: Look): Float = intensities[look] ?: DEFAULT_INTENSITY
 

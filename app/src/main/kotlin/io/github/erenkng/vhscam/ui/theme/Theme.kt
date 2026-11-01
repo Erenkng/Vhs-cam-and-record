@@ -10,13 +10,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 /**
- * Material 3 Expressive theme: wallpaper colours when available, the brand scheme otherwise,
+ * Material 3 Expressive theme: the jade brand scheme, or the wallpaper colours when asked for,
  * spring-based expressive motion and the Roboto Flex type scale.
  */
 @Composable
 fun VhsCamTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current

@@ -53,7 +53,7 @@ fun SecureCameraRoot(onUnlock: (LaunchDestination) -> Unit) {
     var poweringOn by rememberSaveable { mutableStateOf(true) }
 
     val loaded = settings
-    VhsCamTheme(darkTheme = true, dynamicColor = loaded?.dynamicColor ?: true) {
+    VhsCamTheme(darkTheme = true, dynamicColor = loaded?.dynamicColor ?: false) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             when {
                 loaded == null -> Unit

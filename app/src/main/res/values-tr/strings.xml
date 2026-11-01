@@ -121,7 +121,7 @@
     <string name="haptics">Titreşimli geri bildirim</string>
     <string name="settings_appearance">Görünüm</string>
     <string name="dynamic_color">Duvar kâğıdı renkleri</string>
-    <string name="dynamic_color_help">Renkleri duvar kâğıdından al (Android 12+)</string>
+    <string name="dynamic_color_help">Yeşim yeşili yerine renkleri duvar kâğıdından al (Android 12+)</string>
     <string name="settings_about">Hakkında</string>
     <string name="version">Sürüm</string>
     <string name="licenses">Açık kaynak lisansları</string>
@@ -334,4 +334,5 @@
     <string name="tv_making">Televizyona aktarılıyor…</string>
     <string name="msg_tv_saved">Reels ve TikTok için 9:16 TV klibi kaydedildi</string>
     <string name="msg_tv_failed">TV klibi yapılamadı</string>
+    <string name="zoom_reset">1×\'e dön</string>
 </resources>

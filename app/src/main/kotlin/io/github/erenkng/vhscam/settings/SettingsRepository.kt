@@ -81,7 +81,9 @@ class SettingsRepository(context: Context) {
         val mirrorSelfies = booleanPreferencesKey("mirror_selfies")
         val shutterSound = booleanPreferencesKey("shutter_sound")
         val haptics = booleanPreferencesKey("haptics")
-        val dynamicColor = booleanPreferencesKey("dynamic_color")
+        // A new key in 1.3: the app turned jade, so the wallpaper colours left on by
+        // default before are off again until turned on.
+        val dynamicColor = booleanPreferencesKey("wallpaper_colors")
 
         /** Each look's strength, e.g. "film_intensity" (the names v1.0 already used). */
         fun intensity(look: Look) = floatPreferencesKey("${look.name.lowercase()}_intensity")
