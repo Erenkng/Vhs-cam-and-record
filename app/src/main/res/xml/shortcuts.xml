@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the launcher icon: start straight in photo or video. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_video"
+        android:shortcutId="video"
+        android:shortcutLongLabel="@string/shortcut_video_long"
+        android:shortcutShortLabel="@string/shortcut_video_short">
+        <intent
+            android:action="android.media.action.VIDEO_CAMERA"
+            android:targetClass="io.github.erenkng.vhscam.MainActivity"
+            android:targetPackage="io.github.erenkng.vhscam" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/shortcut_photo"
+        android:shortcutId="photo"
+        android:shortcutLongLabel="@string/shortcut_photo_long"
+        android:shortcutShortLabel="@string/shortcut_photo_short">
+        <intent
+            android:action="android.media.action.STILL_IMAGE_CAMERA"
+            android:targetClass="io.github.erenkng.vhscam.MainActivity"
+            android:targetPackage="io.github.erenkng.vhscam" />
+    </shortcut>
+</shortcuts>

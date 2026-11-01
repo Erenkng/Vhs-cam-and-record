@@ -327,4 +327,16 @@
     <string name="msg_animation_failed">Could not save the animation</string>
     <string name="snapshot">Save this frame as a photo</string>
     <string name="receipt_thanks">* * *  THANK YOU  * * *</string>
+    <string name="widget_label">Quick camera</string>
+    <string name="widget_description">Start recording or take a photo in one tap.</string>
+    <string name="widget_open">Open VHS Cam</string>
+    <string name="widget_video">Record video</string>
+    <string name="widget_photo">Take a photo</string>
+    <string name="shortcut_video_short">Video</string>
+    <string name="shortcut_video_long">Record video</string>
+    <string name="shortcut_photo_short">Photo</string>
+    <string name="shortcut_photo_long">Take a photo</string>
+    <string name="secure_setup_title">Unlock to set up</string>
+    <string name="secure_setup_body">VHS Cam needs to be opened once with your phone unlocked before it works from the lock screen.</string>
+    <string name="secure_unlock">Unlock</string>
 </resources>

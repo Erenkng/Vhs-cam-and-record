@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,6 +29,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import io.github.erenkng.vhscam.VhsCamApp
+import io.github.erenkng.vhscam.launch.LaunchDestination
 import io.github.erenkng.vhscam.ui.camera.CameraScreen
 import io.github.erenkng.vhscam.ui.gallery.GalleryScreen
 import io.github.erenkng.vhscam.ui.gallery.GalleryViewModel
@@ -103,6 +105,18 @@ fun AppRoot() {
 @Composable
 private fun AppNavigation(app: VhsCamApp) {
     val nav = rememberNavController()
+    // A launch from outside the app (the widget, the lock screen) may ask for a screen.
+    val destination by app.container.launchDestination.collectAsStateWithLifecycle()
+    LaunchedEffect(destination) {
+        val target = destination ?: return@LaunchedEffect
+        app.container.launchDestination.value = null
+        nav.popBackStack(CameraRoute, inclusive = false)
+        when (target) {
+            LaunchDestination.CAMERA -> Unit
+            LaunchDestination.GALLERY -> nav.navigate(GalleryRoute)
+            LaunchDestination.SETTINGS -> nav.navigate(SettingsRoute)
+        }
+    }
     NavHost(navController = nav, startDestination = CameraRoute) {
         composable<CameraRoute> {
             CameraScreen(

@@ -318,4 +318,16 @@
     <string name="msg_animation_failed">Animasyon kaydedilemedi</string>
     <string name="snapshot">Bu kareyi fotoğraf olarak kaydet</string>
     <string name="receipt_thanks">* * *  TEŞEKKÜRLER  * * *</string>
+    <string name="widget_label">Hızlı kamera</string>
+    <string name="widget_description">Tek dokunuşla kayda başla ya da fotoğraf çek.</string>
+    <string name="widget_open">VHS Cam\'i aç</string>
+    <string name="widget_video">Video kaydet</string>
+    <string name="widget_photo">Fotoğraf çek</string>
+    <string name="shortcut_video_short">Video</string>
+    <string name="shortcut_video_long">Video kaydet</string>
+    <string name="shortcut_photo_short">Fotoğraf</string>
+    <string name="shortcut_photo_long">Fotoğraf çek</string>
+    <string name="secure_setup_title">Kurulum için kilidi aç</string>
+    <string name="secure_setup_body">VHS Cam\'in kilit ekranından açılabilmesi için önce telefonun kilidi açıkken bir kez açılması gerekiyor.</string>
+    <string name="secure_unlock">Kilidi aç</string>
 </resources>

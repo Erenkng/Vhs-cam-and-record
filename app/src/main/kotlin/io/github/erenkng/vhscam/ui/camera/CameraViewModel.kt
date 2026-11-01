@@ -59,6 +59,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -226,7 +228,11 @@ data class CameraUiState(
 class CameraViewModel(
     application: Application,
     private val container: AppContainer,
+    /** Over the lock screen: nothing shot before it opened may show. */
+    private val secure: Boolean = false,
 ) : AndroidViewModel(application) {
+
+    private val openedAt = System.currentTimeMillis()
 
     private val processor = VhsSurfaceProcessor(application)
     private val engine = CameraEngine(application, processor)
@@ -298,7 +304,21 @@ class CameraViewModel(
                 if (!engine.isRecording) engine.setTargetRotation(r)
             }
         }
-        viewModelScope.launch { container.media.latest.collect { m -> _state.update { it.copy(latest = m) } } }
+        viewModelScope.launch {
+            container.media.latest.collect { m ->
+                val shown = if (secure && m != null && m.dateTakenMillis < openedAt) null else m
+                _state.update { it.copy(latest = shown) }
+            }
+        }
+        // A launch from outside the app may ask for photos or video; Pro and dual recording
+        // already are one or the other, so they stay.
+        viewModelScope.launch {
+            container.launchMode.filterNotNull().collect { mode ->
+                val s = _state.first { it.settingsLoaded }
+                container.launchMode.value = null
+                if (!s.isRecording && s.settings.mode.films != mode.films) updateSettings { it.copy(mode = mode) }
+            }
+        }
         viewModelScope.launch { container.rolls.state.collect { r -> _state.update { it.copy(roll = r) } } }
         viewModelScope.launch { container.reel.state.collect { r -> _state.update { it.copy(reel = r) } } }
         viewModelScope.launch { container.media.loadAll() }
@@ -1079,8 +1099,8 @@ class CameraViewModel(
         /** How far the digital zoom goes past the lens. */
         const val DIGITAL_ZOOM_MAX = 10f
 
-        fun factory(app: VhsCamApp): ViewModelProvider.Factory = viewModelFactory {
-            initializer { CameraViewModel(app, app.container) }
+        fun factory(app: VhsCamApp, secure: Boolean = false): ViewModelProvider.Factory = viewModelFactory {
+            initializer { CameraViewModel(app, app.container, secure) }
         }
     }
 }

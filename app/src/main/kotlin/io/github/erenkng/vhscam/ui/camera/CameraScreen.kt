@@ -153,10 +153,11 @@ class CameraActions(
     val onSnapshot: () -> Unit = {},
 )
 
+/** The camera. [secure] over the lock screen: the gallery button only shows what was shot since. */
 @Composable
-fun CameraScreen(onOpenGallery: () -> Unit, onOpenSettings: () -> Unit) {
+fun CameraScreen(onOpenGallery: () -> Unit, onOpenSettings: () -> Unit, secure: Boolean = false) {
     val app = LocalContext.current.applicationContext as VhsCamApp
-    val viewModel: CameraViewModel = viewModel(factory = CameraViewModel.factory(app))
+    val viewModel: CameraViewModel = viewModel(factory = CameraViewModel.factory(app, secure))
     val state by viewModel.state.collectAsStateWithLifecycle()
     val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
