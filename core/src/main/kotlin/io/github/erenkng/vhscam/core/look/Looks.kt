@@ -60,7 +60,7 @@ enum class Look(
 ) {
     VHS(LookCategory.HOME_VIDEO, cropAspect = null, stillLongEdge = 1440, filePrefix = "VHS", video = true, workLines = 480),
 
-    /** Super 8 home movie: 18 pictures a second, with the film edge and sprocket hole in view. */
+    /** Super 8 home movie: 18 pictures a second, inside the projector gate's rounded edge. */
     SUPER8(
         LookCategory.HOME_VIDEO, cropAspect = 4f / 3f, stillLongEdge = 1440, filePrefix = "SUPER8", video = true,
         workLines = 540, pictureRate = 18,

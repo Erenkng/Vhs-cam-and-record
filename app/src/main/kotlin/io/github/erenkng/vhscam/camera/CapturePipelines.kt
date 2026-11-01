@@ -123,6 +123,22 @@ class PhotoPipeline(
         }
     }
 
+    /** Saves a frame taken from the live picture while filming (already looked and upright) as a photo. */
+    suspend fun saveStill(still: Bitmap, look: Look, capturedAt: LocalDateTime, capturedAtMillis: Long): Uri {
+        val file = withContext(Dispatchers.IO) {
+            val out = File(context.cacheDir, "still_${System.nanoTime()}.jpg")
+            out.outputStream().use { still.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }
+            still.recycle()
+            writeExif(out, capturedAt)
+            out
+        }
+        return try {
+            media.savePhoto(file, FileNames.photo(capturedAt, look), capturedAtMillis)
+        } finally {
+            file.delete()
+        }
+    }
+
     /**
      * The first shot of a double exposure, small and upright, to lay over the viewfinder while
      * the second one is framed. [mirror] it for the front camera, whose preview is mirrored.

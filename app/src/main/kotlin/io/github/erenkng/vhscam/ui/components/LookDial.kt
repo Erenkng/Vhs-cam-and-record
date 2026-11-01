@@ -140,12 +140,14 @@ fun <T> SnapDial(
             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
             .drawWithContent {
                 drawContent()
-                // Fade the options out towards both edges.
+                // Fade the options out well before the edges, so none looks cut off by the screen.
                 drawRect(
                     Brush.horizontalGradient(
                         0f to Color.Transparent,
-                        0.16f to Color.Black,
-                        0.84f to Color.Black,
+                        0.06f to Color.Transparent,
+                        0.3f to Color.Black,
+                        0.7f to Color.Black,
+                        0.94f to Color.Transparent,
                         1f to Color.Transparent,
                     ),
                     blendMode = BlendMode.DstIn,

@@ -226,7 +226,7 @@
     <string name="category_film">Film</string>
     <string name="category_digital">Digital</string>
     <string name="look_desc_vhs">Camcorder tape: colour bleed, tracking lines and the date.</string>
-    <string name="look_desc_super8">Home movie film: warm colour, flicker and the sprocket hole.</string>
+    <string name="look_desc_super8">Home movie film: warm colour, flicker, dust and a rounded gate.</string>
     <string name="look_desc_film">Compact camera film with light leaks and an orange date.</string>
     <string name="look_desc_gold">Warm, golden film with rich reds and red grain.</string>
     <string name="look_desc_portrait">Soft, pastel colour that is kind to skin.</string>
@@ -304,4 +304,5 @@
     <string name="busy_animation">Making the animation…</string>
     <string name="msg_animation_saved">Animation saved</string>
     <string name="msg_animation_failed">Could not save the animation</string>
+    <string name="snapshot">Save this frame as a photo</string>
 </resources>

@@ -120,7 +120,7 @@ data class Super8Params(
     val scratches: Float = 0.5f,
     val softness: Float = 0.8f,
     val vignette: Float = 0.5f,
-    /** How much of the film edge and sprocket hole shows, 0..1. */
+    /** How much of the projector gate's dark rounded edge shows, 0..1. */
     val gate: Float = 1f,
 )
 
