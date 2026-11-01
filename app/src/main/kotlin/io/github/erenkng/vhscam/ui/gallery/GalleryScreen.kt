@@ -1,7 +1,12 @@
 package io.github.erenkng.vhscam.ui.gallery
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,13 +34,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ripple
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -50,6 +59,7 @@ import io.github.erenkng.vhscam.media.CapturedMedia
 import io.github.erenkng.vhscam.media.RollState
 import io.github.erenkng.vhscam.ui.camera.readyLabel
 import io.github.erenkng.vhscam.ui.components.formatElapsed
+import kotlinx.coroutines.delay
 
 @Composable
 fun GalleryScreen(viewModel: GalleryViewModel, onBack: () -> Unit, onOpen: (Int) -> Unit) {
@@ -112,21 +122,49 @@ fun GalleryContent(
                     item(span = { GridItemSpan(maxLineSpan) }, key = "rolls") { RollsCard(rolls) }
                 }
                 itemsIndexed(items, key = { _, item -> item.uri.toString() }) { index, item ->
-                    Thumbnail(item, thumbnail) { onOpen(index) }
+                    Thumbnail(item, thumbnail, index, Modifier.animateItem()) { onOpen(index) }
                 }
             }
         }
     }
 }
 
+/**
+ * A shot in the grid. It rises into place as it comes on screen (the first screenful one
+ * after another), and gives under the finger, its corners rounding further.
+ */
 @Composable
-private fun Thumbnail(item: CapturedMedia, image: @Composable (CapturedMedia, Modifier) -> Unit, onClick: () -> Unit) {
+private fun Thumbnail(
+    item: CapturedMedia,
+    image: @Composable (CapturedMedia, Modifier) -> Unit,
+    index: Int,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val motion = MaterialTheme.motionScheme
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val press by animateFloatAsState(if (pressed) 0.93f else 1f, motion.fastSpatialSpec(), label = "press")
+    val corner by animateDpAsState(if (pressed) 28.dp else 16.dp, motion.fastSpatialSpec(), label = "corner")
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        if (index < STAGGERED) delay(index * STAGGER_MILLIS)
+        appear.animateTo(1f, motion.defaultSpatialSpec())
+    }
     Box(
-        Modifier
+        modifier
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(16.dp))
+            .graphicsLayer {
+                val shown = appear.value
+                alpha = shown.coerceIn(0f, 1f)
+                val scale = (0.88f + 0.12f * shown) * press
+                scaleX = scale
+                scaleY = scale
+                translationY = (1f - shown) * 20.dp.toPx()
+            }
+            .clip(RoundedCornerShape(corner))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClickLabel = item.displayName, onClick = onClick),
+            .clickable(interactionSource = interaction, indication = ripple(), onClickLabel = item.displayName, onClick = onClick),
     ) {
         image(item, Modifier.fillMaxSize())
         if (item.isVideo) {
@@ -214,3 +252,7 @@ private fun EmptyTapes(modifier: Modifier = Modifier) {
         )
     }
 }
+
+/** How many thumbnails come in one after another when the grid opens, and how far apart. */
+private const val STAGGERED = 15
+private const val STAGGER_MILLIS = 22L

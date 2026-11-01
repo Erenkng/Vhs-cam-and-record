@@ -3,6 +3,14 @@ package io.github.erenkng.vhscam.ui
 import android.Manifest
 import android.content.ContentUris
 import android.content.pm.PackageManager
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -80,7 +88,7 @@ fun AppRoot() {
     var poweringOn by rememberSaveable { mutableStateOf(true) }
 
     val loaded = settings
-    VhsCamTheme(dynamicColor = loaded?.dynamicColor ?: true) {
+    VhsCamTheme(dynamicColor = loaded?.dynamicColor ?: false) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             when {
                 loaded == null -> Unit
@@ -117,8 +125,21 @@ private fun AppNavigation(app: VhsCamApp) {
             LaunchDestination.SETTINGS -> nav.navigate(SettingsRoute)
         }
     }
-    NavHost(navController = nav, startDestination = CameraRoute) {
-        composable<CameraRoute> {
+    NavHost(
+        navController = nav,
+        startDestination = CameraRoute,
+        // Screens slide in over the one they open from, which eases back and dims; going back
+        // reverses it and follows the back gesture as it is dragged.
+        enterTransition = { slideInHorizontally(navSpatial()) { it } },
+        exitTransition = { slideOutHorizontally(navSpatial()) { -it / 5 } + fadeOut(navEffects(), targetAlpha = DIMMED) },
+        popEnterTransition = { slideInHorizontally(navSpatial()) { -it / 5 } + fadeIn(navEffects(), initialAlpha = DIMMED) },
+        popExitTransition = { slideOutHorizontally(navSpatial()) { it } },
+    ) {
+        // The camera's picture stays where it is underneath; it only dims.
+        composable<CameraRoute>(
+            exitTransition = { fadeOut(navEffects(), targetAlpha = DIMMED) },
+            popEnterTransition = { fadeIn(navEffects(), initialAlpha = DIMMED) },
+        ) {
             CameraScreen(
                 onOpenGallery = { nav.navigate(GalleryRoute) },
                 onOpenSettings = { nav.navigate(SettingsRoute) },
@@ -132,7 +153,11 @@ private fun AppNavigation(app: VhsCamApp) {
                 onOpen = { index -> nav.navigate(ViewerRoute(index)) },
             )
         }
-        composable<ViewerRoute> { entry ->
+        // A shot opens by growing out of the grid and closes by shrinking back into it.
+        composable<ViewerRoute>(
+            enterTransition = { scaleIn(navSpatial(), initialScale = 0.85f) + fadeIn(navEffects()) },
+            popExitTransition = { scaleOut(navSpatial(), targetScale = 0.85f) + fadeOut(navEffects()) },
+        ) { entry ->
             val route = entry.toRoute<ViewerRoute>()
             val galleryEntry = remember(entry) { nav.getBackStackEntry<GalleryRoute>() }
             val gallery: GalleryViewModel = viewModel(
@@ -159,3 +184,15 @@ private fun AppNavigation(app: VhsCamApp) {
         }
     }
 }
+
+/** How far a screen dims while another one covers it. */
+private const val DIMMED = 0.55f
+
+/** Material's emphasized easing: quick off the mark, a long gentle landing. */
+private val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+private fun <T> navSpatial() = tween<T>(NAV_MILLIS, easing = Emphasized)
+
+private fun <T> navEffects() = tween<T>(NAV_MILLIS * 2 / 3, easing = Emphasized)
+
+private const val NAV_MILLIS = 420
